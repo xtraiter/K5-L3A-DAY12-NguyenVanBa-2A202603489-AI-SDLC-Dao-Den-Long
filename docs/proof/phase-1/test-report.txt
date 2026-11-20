@@ -1,0 +1,26 @@
+$ node --test  (exit 0)
+✔ contract tuning matches the code (6.3097ms)
+✔ output format: snapshot at tick 0, every N ticks, end line last (122.5472ms)
+✔ determinism: same seed + inputs => identical bytes (incl. random spawns) (455.1792ms)
+✔ movement: move [0,1] at yaw 0 goes +Z at player_speed; yaw 90 maps to +X (329.0384ms)
+✔ tick model: snapshot 0 is before input; event of step k has tick k+1 (103.4581ms)
+✔ pickup radius is inclusive and capacity is respected (236.3072ms)
+✔ deposit + lantern_lit + score; scenario setup gives no score/events (148.7582ms)
+✔ interact only triggers on false->true edge (109.3421ms)
+✔ win: lighting the last lantern ends the game with bonus (109.4357ms)
+✔ pulse: costs light, stuns and pushes shades in radius, respects cooldown (233.2223ms)
+✔ pulse without enough light does nothing (111.8146ms)
+✔ stun lasts pulse_stun_s, then the shade chases again (111.0114ms)
+✔ shade hit: lose flame, drop motes, invulnerability, then lose on no flames (108.169ms)
+✔ shades cannot enter safe_radius around a lantern (113.4018ms)
+✔ dawn: time runs out => lost/dawn (111.1092ms)
+✔ random shades spawn with shade_spawned events and deterministic ids (114.8694ms)
+✔ bad inputs/scenario => exit 2; bad CLI => non-zero (727.6243ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3432.136

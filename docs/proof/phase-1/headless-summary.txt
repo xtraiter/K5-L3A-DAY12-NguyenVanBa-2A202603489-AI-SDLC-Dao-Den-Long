@@ -1,0 +1,9 @@
+collect-and-light: exit 0 end={"type":"end","ticks":3600,"state":"playing","score":150}
+  events: 25:mote_picked, 56:mote_picked, 86:mote_picked, 116:mote_picked, 146:mote_picked, 201:deposit, 201:lantern_lit
+pulse-stun: exit 0 end={"type":"end","ticks":566,"state":"lost","score":20}
+  events: 81:pulse, 326:player_hit, 446:player_hit, 566:player_hit, 566:game_over
+shade-hit-lose: exit 0 end={"type":"end","ticks":206,"state":"lost","score":0}
+  events: 86:player_hit, 206:player_hit, 206:game_over
+win-last-lantern: exit 0 end={"type":"end","ticks":31,"state":"won","score":369}
+  events: 31:deposit, 31:lantern_lit, 31:game_over
+determinism seed 42 full night run twice: IDENTICAL (one run 116 ms incl. node startup)

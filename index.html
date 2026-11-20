@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Đảo Đèn Lồng</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0716; font-family: system-ui, sans-serif; color: #ffe9c7; }
+    canvas { display: block; }
+    #hud { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; gap: 18px; flex-wrap: wrap;
+           font-size: 16px; text-shadow: 0 1px 3px #000; pointer-events: none; }
+    #hud .box { background: rgba(20, 10, 35, .55); padding: 6px 12px; border-radius: 10px; }
+    #hint { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 13px; opacity: .75;
+            background: rgba(20, 10, 35, .55); padding: 6px 12px; border-radius: 10px; pointer-events: none; }
+    #overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+               background: rgba(8, 4, 18, .78); text-align: center; gap: 10px; }
+    #overlay h1 { margin: 0; font-size: 44px; color: #ffb347; letter-spacing: 1px; }
+    #overlay p { margin: 0; max-width: 560px; line-height: 1.5; }
+    #overlay .key { color: #ffd27a; font-weight: 600; }
+    .hidden { display: none !important; }
+  </style>
+  <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+  <div id="hud" class="hidden">
+    <div class="box" id="hud-flames"></div>
+    <div class="box" id="hud-carried"></div>
+    <div class="box" id="hud-lanterns"></div>
+    <div class="box" id="hud-time"></div>
+    <div class="box" id="hud-score"></div>
+    <div class="box" id="hud-pulse"></div>
+  </div>
+  <div id="hint" class="hidden">WASD đi · Space nhảy · E nạp đèn · F tỏa sáng · Kéo chuột / ← → xoay camera · R chơi lại</div>
+  <div id="overlay">
+    <h1 id="ov-title">Đảo Đèn Lồng</h1>
+    <p id="ov-text">Đêm 1 – Đảo Bến. Sương đen đã nuốt ánh sáng của đảo. Hãy giúp Mây gom đom đóm và thắp lại 5 Đèn Lồng Lớn trước bình minh.</p>
+    <p>Nhấn <span class="key">Enter</span> để bắt đầu</p>
+  </div>
+  <script type="module" src="./src/client/main.js"></script>
+</body>
+</html>

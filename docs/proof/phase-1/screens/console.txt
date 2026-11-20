@@ -1,0 +1,3 @@
+HUD: Lửa: ●●● | Đom đóm: 0/5 | Đèn: 0/5 | Bình minh: 4:55 | Điểm: 0 | Tỏa sáng: cần 1 đom đóm
+errors: 0
+
