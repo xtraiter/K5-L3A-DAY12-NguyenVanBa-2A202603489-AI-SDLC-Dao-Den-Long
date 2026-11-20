@@ -75,6 +75,12 @@ Sau màn Bình Minh, hoặc sau khi thua ở bất kỳ đêm nào, người ch�
 
 - Khi chạy `npm start`, điểm lưu vào `data/leaderboard.json` trên máy và vẫn còn sau khi tắt game.
 - Xuất bảng xếp hạng: `node scripts/serve.mjs --export-leaderboard out.json` (`run_cmd` trong contract) → `{"entries": [...]}`.
+- **Dùng máy bạn làm server cho nhiều người:** `npm start` in ra các địa chỉ LAN (ví dụ `http://192.168.1.x:8080`). Máy khác cùng Wi-Fi mở địa chỉ đó là chơi được và dùng chung bảng xếp hạng; nếu không vào được, cho phép Node.js qua tường lửa. Muốn mời người ngoài Internet: `cloudflared tunnel --url http://localhost:8080` (Cloudflare Quick Tunnel, miễn phí) sẽ tạo một link `https://….trycloudflare.com`.
+- Bản tĩnh trên Cloudflare không có server nên mỗi trình duyệt có bảng riêng.
+
+## Chế độ Mod
+
+Gõ `787898` khi đang chơi, hoặc nhập vào ô "Mã bí mật" trong menu tạm dừng: mọi đèn sáng và luôn đầy dầu, Mây bất tử (Bóng Mực không gây sát thương, rơi khỏi đảo thì về điểm xuất phát mà không mất gì). Mod giữ nguyên tới hết lượt chơi, và **lượt có Mod không được lưu vào bảng xếp hạng**. Luật Mod nằm trong `Sim.setCheats()`, mặc định tắt; headless, soak và bench không bao giờ bật nó (`tests/mod.test.mjs`).
 
 ## Kiểm chứng
 

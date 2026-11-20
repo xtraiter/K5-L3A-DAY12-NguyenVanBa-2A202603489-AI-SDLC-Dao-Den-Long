@@ -62,6 +62,8 @@ export class Sim {
     const N = NIGHTS[night];
     if (!N) throw new Error(`unknown night ${night}`);
     this.bench = bench;
+    // Mod mode (client code 787898): off by default; headless/soak/bench never turn it on.
+    this.cheats = { god: false, fullLanterns: false };
     this.night = night;
     this.map = N;
     this.tick = 0;
@@ -211,6 +213,23 @@ export class Sim {
 
   #makeShade(id, pos, hover, state, ticks) {
     return { id, pos: [...pos], hover, state, ticks, push: 0, pushDir: [1, 0], evict: 0, home: [...pos], wp: null, targetId: null, drainTicks: 0 };
+  }
+
+  /** Mod mode: { god, fullLanterns }. Only the web client calls this (secret code). */
+  setCheats(c) {
+    this.cheats = { ...this.cheats, ...c };
+    if (this.cheats.fullLanterns) this.#fillAllLanterns();
+  }
+
+  // every lantern lit with full fuel; no events and no score (it is a cheat, not a light-up)
+  #fillAllLanterns() {
+    const full = T.fuel_max * R.fuel_units;
+    for (const l of this.lanterns) {
+      l.lit = true;
+      l.everLit = true;
+      l.fuel = full;
+      l.deposited = Math.max(l.deposited, T.lantern_cost);
+    }
   }
 
   capacity() {
@@ -384,6 +403,7 @@ export class Sim {
           this.#emit('fuel_drain', { lantern_id: l.id, shade_id: s.id, fuel: fuel1(Math.max(0, l.fuel)) });
       }
     }
+    if (this.cheats.fullLanterns) this.#fillAllLanterns();
     for (const l of this.lanterns) {
       if (l.lit && l.fuel <= 0) {
         l.lit = false;
@@ -553,7 +573,7 @@ export class Sim {
         }
       }
       for (const s of this.shades) {
-        if (p.invuln > 0) break;
+        if (p.invuln > 0 || this.cheats.god) break; // god mode: shades cannot hurt Mây
         if (!(s.state === 'wander' || s.state === 'chase') || s.evict > 0) continue;
         if (distXZ(s.pos, p.pos) <= T.shade_hit_radius && Math.abs(s.pos[1] - p.pos[1]) <= R.hit_dy) {
           p.flames -= 1;
@@ -682,6 +702,17 @@ export class Sim {
     p.vel[0] = (p.pos[0] - before[0]) / DT;
     p.vel[2] = (p.pos[2] - before[1]) / DT;
 
+    // god mode: falling just puts Mây back at the start, no penalty
+    if (p.pos[1] < R.fall_y && this.cheats.god) {
+      p.pos = [...N.start];
+      const gs = this.ground(p.pos[0], p.pos[2]);
+      if (gs !== null) p.pos[1] = gs;
+      p.vel = [0, 0, 0];
+      p.grounded = true;
+      p.launch = null;
+      p.dashTicks = 0;
+      return;
+    }
     // fall off the island: once, ignores invulnerability
     if (p.pos[1] < R.fall_y) {
       p.flames -= 1;

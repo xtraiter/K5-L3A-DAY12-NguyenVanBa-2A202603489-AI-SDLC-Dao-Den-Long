@@ -184,11 +184,52 @@ const SCREENS = ['scr-menu', 'scr-intro', 'scr-result', 'scr-dawn', 'scr-pause',
 // ---------- run tracking + leaderboard (Ticket-04 §3) ----------
 let runSeed = 0;
 let nightsWon = 0;
+let runModded = false; // Mod mode used in this run -> score is not saved to the leaderboard
 const newRun = () => {
   runSeed = (Date.now() & 0xfffffff) >>> 0;
   nightsWon = 0;
   totalScore = 0;
+  runModded = false;
 };
+
+// ---------- Mod mode: secret code 787898 = all lanterns full + invincible ----------
+const MOD_CODE = '787898';
+function applyMod() {
+  if (!sim) return;
+  sim.setCheats({ god: true, fullLanterns: true });
+  $('mod-badge').classList.remove('hidden');
+}
+function activateMod() {
+  if (mode !== 'playing' && mode !== 'paused') return false;
+  runModded = true;
+  applyMod();
+  audio.play('charm_picked');
+  toast('Chế độ Mod: đèn đầy dầu, bất tử');
+  captions.say('Chế độ Mod đã bật (không lưu điểm)', '');
+  return true;
+}
+let codeBuffer = '';
+window.addEventListener('keydown', (e) => {
+  if (mode !== 'playing' || !/^\d$/.test(e.key)) return;
+  codeBuffer = (codeBuffer + e.key).slice(-MOD_CODE.length);
+  if (codeBuffer === MOD_CODE) {
+    codeBuffer = '';
+    activateMod();
+  }
+});
+$('cheat-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const input = e.target.querySelector('input');
+  const msg = $('cheat-msg');
+  if (input.value.trim() === MOD_CODE && activateMod()) {
+    msg.textContent = 'Đã bật chế độ Mod: đèn đầy, bất tử.';
+    msg.classList.remove('err');
+  } else {
+    msg.textContent = 'Mã không đúng.';
+    msg.classList.add('err');
+  }
+  input.value = '';
+});
 const LOCAL_LB = 'ddl-leaderboard';
 const localBoard = () => {
   try {
@@ -250,6 +291,11 @@ for (const f of document.querySelectorAll('[data-save]')) {
     e.preventDefault();
     const msg = f.querySelector('.savemsg');
     const name = f.querySelector('input').value.trim();
+    if (runModded) {
+      msg.textContent = 'Lượt chơi có dùng chế độ Mod nên không được lưu điểm.';
+      msg.classList.add('err');
+      return;
+    }
     if (!validName(name)) {
       msg.textContent = `${settings.cb ? '⚠ ' : ''}Tên phải dài 3–12 ký tự, chỉ gồm chữ, số hoặc _`;
       msg.classList.add('err');
@@ -303,6 +349,9 @@ let typer = 0;
 function goIntro(n) {
   loadNight(n, (runSeed + n) >>> 0);
   resetSaveForms();
+  $('mod-badge').classList.toggle('hidden', !runModded);
+  $('cheat-msg').textContent = '';
+  if (runModded) applyMod(); // Mod stays on for the rest of the run
   mode = 'intro';
   $('intro-num').textContent = String(n).padStart(2, '0');
   $('intro-night').textContent = `Đêm ${n} / 3`;

@@ -7,6 +7,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, normalize, extname, sep, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { networkInterfaces } from 'node:os';
 import { makeEntry, addEntry, sortEntries } from '../src/leaderboard.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -89,4 +90,13 @@ createServer(async (req, res) => {
     res.writeHead(e.code === 'ENOENT' || e.code === 'EISDIR' ? 404 : 500);
     res.end('not found');
   }
-}).listen(PORT, () => console.log(`Đảo Đèn Lồng: http://localhost:${PORT}`));
+}).listen(PORT, () => {
+  console.log(`Đảo Đèn Lồng: http://localhost:${PORT}`);
+  // other devices on the same Wi-Fi/LAN can join and share this machine's leaderboard
+  const lan = Object.values(networkInterfaces())
+    .flat()
+    .filter((i) => i && i.family === 'IPv4' && !i.internal)
+    .map((i) => `http://${i.address}:${PORT}`);
+  if (lan.length) console.log(`Cùng mạng LAN: ${lan.join('  ')}`);
+  console.log(`Bảng xếp hạng lưu tại: ${LB_FILE}`);
+});
