@@ -1,0 +1,9 @@
+// Cloudflare Workers (static assets only): serves the web build in dist/.
+// Cloudflare dashboard: Build command `npm run build:web`, Deploy command `npx wrangler deploy`.
+{
+  "name": "k5-l3-lab-day12-ai-sdlc",
+  "compatibility_date": "2025-06-01",
+  "assets": {
+    "directory": "./dist"
+  }
+}
