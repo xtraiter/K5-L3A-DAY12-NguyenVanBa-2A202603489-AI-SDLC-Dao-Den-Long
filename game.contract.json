@@ -1,6 +1,6 @@
 {
   "contract_version": "1.0",
-  "team": "MSSV-HoTen",
+  "team": "2A202603489-nguyen-van-ba",
   "build_cmd": "npm install",
   "run_cmd": "npm start",
   "headless_cmd": "node src/headless.mjs",
