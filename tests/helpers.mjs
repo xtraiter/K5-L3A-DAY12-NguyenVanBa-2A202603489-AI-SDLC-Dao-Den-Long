@@ -8,10 +8,10 @@ export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HEADLESS = join(ROOT, 'src', 'headless.mjs');
 
 /** Run the real headless CLI. scenario/inputs may be objects (written to temp files) or raw strings. */
-export function runHeadless({ seed = 1, ticks = 60, scenario, inputs, every, extraArgs = [] } = {}) {
+export function runHeadless({ seed = 1, night = 1, ticks = 60, scenario, inputs, every, extraArgs = [] } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'ddl-'));
   const out = join(dir, 'out.jsonl');
-  const args = [HEADLESS, '--seed', String(seed), '--night', '1', '--ticks', String(ticks), '--out', out];
+  const args = [HEADLESS, '--seed', String(seed), '--night', String(night), '--ticks', String(ticks), '--out', out];
   const put = (name, v) => {
     const f = join(dir, `${name}.json`);
     writeFileSync(f, typeof v === 'string' ? v : JSON.stringify(v));
@@ -40,4 +40,16 @@ export function runHeadless({ seed = 1, ticks = 60, scenario, inputs, every, ext
 }
 
 // Empty, quiet island: nothing random, so each test controls everything.
-export const quiet = (extra = {}) => ({ random_motes: false, random_shades: false, motes: [], shades: [], ...extra });
+export const quiet = (extra = {}) => ({
+  random_motes: false,
+  random_shades: false,
+  random_drifters: false,
+  wind_enabled: false,
+  motes: [],
+  shades: [],
+  drifters: [],
+  charms: [],
+  ...extra,
+});
+export const near = (a, b, eps = 1e-3) => Math.abs(a - b) <= eps;
+export const xz = (p) => Math.hypot(p[0], p[2]);

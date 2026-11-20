@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Headless runner — Test Contract v1.0.
-// node src/headless.mjs --seed <int> --night 1 [--scenario f] [--inputs f] --ticks <int> --out f [--snapshot-every n]
+// Headless runner — Test Contract v1.1.
+// node src/headless.mjs --seed <int> --night 1|2|3 [--scenario f] [--inputs f] --ticks <int> --out f [--snapshot-every n]
 import { readFileSync, writeFileSync } from 'node:fs';
 import { Sim, NEUTRAL_INPUT } from './sim/sim.js';
 import { parseInputs, parseScenario, FormatError } from './sim/validate.js';
@@ -37,7 +37,7 @@ function parseArgs(argv) {
     inputs: args.inputs,
   };
   if (!out.out) throw new UsageError('--out is required');
-  if (out.night !== 1) throw new UsageError(`--night ${out.night} is not available (only night 1)`);
+  if (![1, 2, 3].includes(out.night)) throw new UsageError(`--night must be 1, 2 or 3`);
   return out;
 }
 
@@ -61,8 +61,9 @@ export function run(opts) {
     : null;
   const frames = opts.inputs ? parseInputs(readJson(opts.inputs, 'inputs')) : new Map();
 
-  const sim = new Sim({ seed: opts.seed, scenario });
+  const sim = new Sim({ seed: opts.seed, night: opts.night, scenario });
   const lines = [JSON.stringify(sim.snapshot())];
+  for (const ev of sim.drainEvents()) lines.push(JSON.stringify(ev)); // night_start (tick 0)
   const input = { ...NEUTRAL_INPUT, move: [0, 0] };
 
   for (let k = 0; k < opts.ticks; k++) {
@@ -70,10 +71,10 @@ export function run(opts) {
     if (f) Object.assign(input, f);
     sim.step(input);
     for (const ev of sim.drainEvents()) lines.push(JSON.stringify(ev));
-    if (sim.steps % opts.every === 0) lines.push(JSON.stringify(sim.snapshot()));
-    if (sim.state !== 'playing') break;
+    if (sim.tick % opts.every === 0) lines.push(JSON.stringify(sim.snapshot()));
+    if (sim.state === 'won' || sim.state === 'lost') break;
   }
-  lines.push(JSON.stringify({ type: 'end', ticks: sim.steps, state: sim.state, score: sim.score }));
+  lines.push(JSON.stringify({ type: 'end', ticks: sim.tick, state: sim.state, score: sim.score }));
   writeFileSync(opts.out, lines.join('\n') + '\n');
 }
 
