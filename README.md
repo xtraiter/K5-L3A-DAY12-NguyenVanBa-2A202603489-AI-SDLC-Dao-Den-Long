@@ -1,4 +1,4 @@
-# Đảo Đèn Lồng — v1.0.0
+# Đảo Đèn Lồng — v1.0.1
 
 > **Video demo:** *(đính kèm GitHub Release v1.0.0 / `docs/demo/demo.mp4`)* · **Chơi online:** bản Cloudflare tự cập nhật từ nhánh `main` (link trong mô tả repo)
 

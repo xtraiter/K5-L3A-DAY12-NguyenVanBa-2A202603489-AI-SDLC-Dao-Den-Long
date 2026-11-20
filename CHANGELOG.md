@@ -1,5 +1,14 @@
 # Changelog
 
+## [v1.0.1] Bản cập nhật sau phát hành
+
+### Added
+- **Chế độ Mod** (mã `787898`, gõ khi đang chơi hoặc nhập trong menu tạm dừng): mọi đèn sáng, luôn đầy dầu, Mây bất tử. Lượt có Mod không được lưu vào bảng xếp hạng. Luật nằm trong `Sim.setCheats()`, mặc định tắt (3 test mới, tổng 69).
+- `npm start` in ra địa chỉ LAN để máy khác cùng mạng vào chơi và dùng chung bảng xếp hạng; README có hướng dẫn mời người ngoài Internet bằng Cloudflare Quick Tunnel.
+
+### Unchanged
+- Test Contract v1.3, đầu ra headless, soak và bench không đổi (Mod không bao giờ bật trong các chế độ này).
+
 ## [v1.0.0 / phase-4] Ticket-04 "Bình minh: phát hành" (contract v1.3)
 
 ### Added

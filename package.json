@@ -1,6 +1,6 @@
 {
   "name": "dao-den-long",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Đảo Đèn Lồng — 3D web game with a deterministic headless mode (Test Contract v1.0)",
   "type": "module",
