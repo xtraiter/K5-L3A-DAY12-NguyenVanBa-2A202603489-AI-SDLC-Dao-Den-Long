@@ -32,6 +32,18 @@ test('god mode: shades never hit, falling has no penalty', () => {
   assert.equal(fall.player.carried, 4);
 });
 
+test('skip to dawn: only with Mod on; the next tick is dawn and normal rules decide (all lit -> won)', () => {
+  const plain = new Sim({ seed: 1 });
+  assert.equal(plain.skipToDawn(), false);
+  const sim = new Sim({ seed: 1, night: 2 });
+  sim.setCheats({ god: true, fullLanterns: true });
+  run(sim, 30);
+  assert.equal(sim.skipToDawn(), true);
+  const ev = run(sim, 2);
+  assert.deepEqual(ev.find((e) => e.name === 'game_over').data, { result: 'won', reason: 'dawn_survived' });
+  assert.equal(sim.state, 'won');
+});
+
 test('full lanterns: every lantern lit with full fuel and stays full; no score for it', () => {
   const sim = new Sim({ seed: 1, night: 3, scenario: { random_motes: false, random_shades: false, random_drifters: false, wind_enabled: false } });
   sim.setCheats({ fullLanterns: true });

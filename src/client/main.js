@@ -198,7 +198,17 @@ function applyMod() {
   if (!sim) return;
   sim.setCheats({ god: true, fullLanterns: true });
   $('mod-badge').classList.remove('hidden');
+  $('btn-skip').classList.remove('hidden');
 }
+// Mod: the night only ends at dawn (Ticket-03), so let the player jump straight to dawn.
+function skipNight() {
+  if (!runModded || !sim || !sim.skipToDawn()) return;
+  if (mode === 'paused') resume();
+  toast('Bình minh tới sớm…');
+}
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyN' && mode === 'playing' && runModded && e.target.tagName !== 'INPUT') skipNight();
+});
 function activateMod() {
   if (mode !== 'playing' && mode !== 'paused') return false;
   runModded = true;
@@ -350,6 +360,7 @@ function goIntro(n) {
   loadNight(n, (runSeed + n) >>> 0);
   resetSaveForms();
   $('mod-badge').classList.toggle('hidden', !runModded);
+  $('btn-skip').classList.toggle('hidden', !runModded);
   $('cheat-msg').textContent = '';
   if (runModded) applyMod(); // Mod stays on for the rest of the run
   mode = 'intro';
@@ -445,6 +456,7 @@ document.addEventListener('click', (e) => {
     newRun();
     goIntro(Number(b.dataset.night));
   } else if (act === 'leaderboard') showBoard();
+  else if (act === 'skip') skipNight();
   else if (act === 'play') startPlay();
   else if (act === 'next') goIntro(night + 1);
   else if (act === 'retry') goIntro(night);

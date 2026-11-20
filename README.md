@@ -80,7 +80,7 @@ Sau màn Bình Minh, hoặc sau khi thua ở bất kỳ đêm nào, người ch�
 
 ## Chế độ Mod
 
-Gõ `787898` khi đang chơi, hoặc nhập vào ô "Mã bí mật" trong menu tạm dừng: mọi đèn sáng và luôn đầy dầu, Mây bất tử (Bóng Mực không gây sát thương, rơi khỏi đảo thì về điểm xuất phát mà không mất gì). Mod giữ nguyên tới hết lượt chơi, và **lượt có Mod không được lưu vào bảng xếp hạng**. Luật Mod nằm trong `Sim.setCheats()`, mặc định tắt; headless, soak và bench không bao giờ bật nó (`tests/mod.test.mjs`).
+Gõ `787898` khi đang chơi, hoặc nhập vào ô "Mã bí mật" trong menu tạm dừng: mọi đèn sáng và luôn đầy dầu, Mây bất tử (Bóng Mực không gây sát thương, rơi khỏi đảo thì về điểm xuất phát mà không mất gì). Vì đêm chỉ kết thúc ở bình minh, Mod có thêm **qua màn ngay**: bấm `N` hoặc nút "Qua màn ngay (Mod)" trong menu tạm dừng. Mod giữ nguyên tới hết lượt chơi, và **lượt có Mod không được lưu vào bảng xếp hạng**. Luật Mod nằm trong `Sim.setCheats()`, mặc định tắt; headless, soak và bench không bao giờ bật nó (`tests/mod.test.mjs`).
 
 ## Kiểm chứng
 

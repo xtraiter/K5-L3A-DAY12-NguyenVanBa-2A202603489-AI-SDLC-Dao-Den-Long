@@ -1,5 +1,10 @@
 # Changelog
 
+## [Chưa phát hành]
+
+### Fixed
+- Mod không qua được màn: từ Ticket-03 đêm chỉ kết thúc ở bình minh, nên dù đèn đầy vẫn phải chờ 4–5 phút. Thêm **qua màn ngay** cho Mod: phím `N` hoặc nút "Qua màn ngay (Mod)" trong menu tạm dừng. Đồng hồ nhảy tới bình minh và luật bình minh quyết định kết quả (`Sim.skipToDawn()`, chỉ chạy khi Mod bật; thêm 1 test, tổng 70).
+
 ## [v1.0.1] Bản cập nhật sau phát hành
 
 ### Added

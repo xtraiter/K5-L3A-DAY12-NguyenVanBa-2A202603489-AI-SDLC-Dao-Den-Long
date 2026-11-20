@@ -221,6 +221,13 @@ export class Sim {
     if (this.cheats.fullLanterns) this.#fillAllLanterns();
   }
 
+  /** Mod only: jump the clock so the next tick is dawn (normal dawn rules then decide the result). */
+  skipToDawn() {
+    if (!this.cheats.god && !this.cheats.fullLanterns) return false;
+    this.duration = (this.simTick + 1) / TICK_RATE;
+    return true;
+  }
+
   // every lantern lit with full fuel; no events and no score (it is a cheat, not a light-up)
   #fillAllLanterns() {
     const full = T.fuel_max * R.fuel_units;
