@@ -53,10 +53,15 @@ const BUTTONS = ['jump', 'interact', 'pulse', 'dash', 'pause'];
 
 export class Sim {
   /** @param {{seed?: number, night?: 1|2|3, scenario?: object|null}} opts scenario must be validated */
-  constructor({ seed = 0, night = 1, scenario = null } = {}) {
+  /**
+   * bench: Ticket-04 benchmark scene. Disables spawning, damage, pickup, fuel change and night end.
+   * Only the client bench mode sets it; headless never does, so contract output is unchanged.
+   */
+  constructor({ seed = 0, night = 1, scenario = null, bench = false } = {}) {
     const sc = scenario || {};
     const N = NIGHTS[night];
     if (!N) throw new Error(`unknown night ${night}`);
+    this.bench = bench;
     this.night = night;
     this.map = N;
     this.tick = 0;
@@ -224,7 +229,8 @@ export class Sim {
   #nearestLantern(from, pred) {
     let best = null;
     let bestD = Infinity;
-    for (const l of [...this.lanterns].sort(byId)) {
+    // this.lanterns is created in id order (L1..Ln) and never reordered: no copy/sort per call
+    for (const l of this.lanterns) {
       if (!pred(l)) continue;
       const d = distXZ(from, l.pos);
       if (d < bestD) {
@@ -368,7 +374,7 @@ export class Sim {
     // 2b. fuel: natural decay + drain by shades (integer units), then lanterns at <= 0 go out
     const decay = Math.round((T.fuel_decay_per_s * R.fuel_units) / TICK_RATE);
     const drainPerShade = Math.round((T.drain_per_s * R.fuel_units) / TICK_RATE);
-    for (const l of this.lanterns) {
+    for (const l of this.bench ? [] : this.lanterns) {
       if (!l.lit) continue;
       const drainers = this.shades.filter((s) => s.state === 'drain' && s.targetId === l.id);
       l.fuel -= decay + drainPerShade * drainers.length;
@@ -405,7 +411,7 @@ export class Sim {
     const alive = !p.dead;
 
     // 4. pick up motes and charms
-    if (alive) {
+    if (alive && !this.bench) {
       const keep = [];
       for (const m of this.motes) {
         if (p.carried < this.capacity() && this.#canPick(m.pos)) {
@@ -533,7 +539,7 @@ export class Sim {
     this.#moveDrifters();
 
     // 9. contact: drifters steal first, then shades hit (ascending id)
-    if (alive) {
+    if (alive && !this.bench) {
       for (const d of [...this.drifters].sort(byId)) {
         if (d.state !== 'chase' || d.stoleOnce) continue;
         if (distXZ(d.pos, p.pos) <= R.drifter_hit_xz) {
@@ -563,6 +569,7 @@ export class Sim {
     }
 
     // 10. scheduled spawns (new entities act from next tick)
+    if (this.bench) return; // bench: no spawning, no end of night
     this.#spawn();
 
     // 11. win / lose

@@ -1,9 +1,11 @@
 {
-  "contract_version": "1.2",
+  "contract_version": "1.3",
   "team": "2A202603489-nguyen-van-ba",
   "build_cmd": "npm install",
-  "run_cmd": "npm start",
+  "run_cmd": "node scripts/serve.mjs",
   "headless_cmd": "node src/headless.mjs",
+  "bench_cmd": "node scripts/bench.mjs",
+  "soak_cmd": "node --expose-gc --max-semi-space-size=1 src/soak.mjs",
   "tuning": {
     "player_speed": 6,
     "carry_capacity": 10,

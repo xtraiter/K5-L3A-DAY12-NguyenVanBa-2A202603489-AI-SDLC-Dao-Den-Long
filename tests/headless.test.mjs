@@ -11,9 +11,9 @@ const T = TUNING;
 const gameEvents = (r) => r.events.filter((e) => e.name !== 'night_start');
 
 // Ticket-03: contract v1.2 (was 1.1)
-test('contract v1.2: tuning matches the code', () => {
+test('contract v1.3: tuning matches the code', () => {
   const c = JSON.parse(readFileSync(join(ROOT, 'game.contract.json'), 'utf8'));
-  assert.equal(c.contract_version, '1.2');
+  assert.equal(c.contract_version, '1.3'); // Ticket-04 (was 1.2)
   assert.deepEqual([c.tuning.night1_duration_s, c.tuning.night2_duration_s, c.tuning.night3_duration_s], [240, 270, 300]);
   assert.deepEqual(c.tuning, TUNING);
 });
