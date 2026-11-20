@@ -89,4 +89,4 @@ Mọi phần thêm đều nằm trong `src/client/` (chỉ phần hiển thị).
 
 ## Nhạc
 
-Ba file trong [nhac/](nhac/README.md) (`maintheme.mp3`, `win.mp3`, `dead.mp3`) do tác giả repo tự làm/tạo bằng AI (xem [CREDITS.md](CREDITS.md)). Nhạc chỉ có ở bản web, không ảnh hưởng chế độ headless.
+Hai file trong [nhac/](nhac/README.md) (`win.mp3`, `dead.mp3`) do tác giả repo tự làm/tạo bằng AI. Nhạc nền `maintheme.mp3` là tùy chọn: thả file vào là game tự phát (xem [CREDITS.md](CREDITS.md)). Nhạc chỉ có ở bản web, không ảnh hưởng chế độ headless.

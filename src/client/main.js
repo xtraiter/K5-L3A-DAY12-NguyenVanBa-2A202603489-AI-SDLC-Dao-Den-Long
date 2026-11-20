@@ -105,34 +105,71 @@ function loadNight(n) {
   for (const k of Object.keys(hudCache)) delete hudCache[k];
 }
 
+// ---------- progress (unlocked nights, best scores) ----------
+const progress = { unlocked: 1, best: {} };
+try {
+  Object.assign(progress, JSON.parse(localStorage.getItem('ddl-progress') || '{}'));
+} catch {}
+const saveProgress = () => {
+  try {
+    localStorage.setItem('ddl-progress', JSON.stringify(progress));
+  } catch {}
+};
+function renderNightCards() {
+  $('night-cards').innerHTML = [1, 2, 3]
+    .map((n) => {
+      const open = n <= progress.unlocked;
+      const best = progress.best[n];
+      return `<button class="night" data-act="night" data-night="${n}" ${open ? '' : 'disabled'}>
+        <small>Đêm ${n}</small><b>${NIGHTS[n].name}</b>
+        <small class="${best ? 'best' : ''}">${open ? (best ? `Kỷ lục ${best}` : 'Chưa thắp') : 'Chưa mở'}</small></button>`;
+    })
+    .join('');
+}
+
 // ---------- screens ----------
 const SCREENS = ['scr-menu', 'scr-intro', 'scr-result', 'scr-dawn', 'scr-pause', 'scr-settings'];
 let settingsReturn = 'scr-menu';
 function show(id) {
   for (const s of SCREENS) $(s).classList.toggle('hidden', s !== id);
-  $('hud').classList.toggle('hidden', !(mode === 'playing'));
-  const btn = id && $(id).querySelector('button');
-  btn?.focus();
+  $('hud').classList.toggle('hidden', mode !== 'playing');
+  if (id) {
+    releaseMouse();
+    $(id).querySelector('button:not(:disabled)')?.focus();
+  }
 }
 
 function goMenu() {
   mode = 'menu';
   audio.stopBgm();
   loadNight(1);
+  renderNightCards();
   show('scr-menu');
 }
+let typer = 0;
 function goIntro(n) {
   loadNight(n);
   mode = 'intro';
-  $('intro-night').textContent = `Đêm ${n}`;
+  $('intro-num').textContent = String(n).padStart(2, '0');
+  $('intro-night').textContent = `Đêm ${n} / 3`;
   $('intro-name').textContent = NIGHTS[n].name;
-  $('intro-quote').textContent = `Ông Đăng: “${STORY[n]}”`;
+  const text = `“${STORY[n]}”`;
+  let i = 0;
+  clearInterval(typer);
+  $('intro-quote').textContent = '';
+  typer = setInterval(() => {
+    i += 2;
+    $('intro-quote').textContent = text.slice(0, i);
+    if (i >= text.length) clearInterval(typer);
+  }, 18);
   show('scr-intro');
 }
 function startPlay() {
+  clearInterval(typer);
   audio.unlock();
   mode = 'playing';
   show(null);
+  lockMouse();
   audio.playBgm();
 }
 function pause() {
@@ -144,34 +181,60 @@ function pause() {
 function resume() {
   mode = 'playing';
   show(null);
+  lockMouse();
 }
 function finishNight(result, reason) {
   mode = 'result';
   audio.stopBgm();
   audio.play(result);
   const won = result === 'won';
-  if (won) totalScore += sim.score;
+  const p = sim.player;
+  if (won) {
+    totalScore += sim.score;
+    progress.unlocked = Math.max(progress.unlocked, Math.min(3, night + 1));
+    progress.best[night] = Math.max(progress.best[night] || 0, sim.score);
+    saveProgress();
+  }
   if (won && night === 3) {
     mode = 'dawn';
-    $('dawn-score').textContent = `Tổng điểm: ${totalScore}`;
+    $('dawn-score').textContent = totalScore;
     show('scr-dawn');
     return;
   }
-  const why = { all_lit: 'Mọi ngọn Đèn Lồng Lớn đã sáng!', dawn: 'Trời đã sáng mà đảo vẫn chìm trong sương…', no_flames: 'Ngọn lửa của Mây đã tắt…' };
-  $('res-title').textContent = won ? `${NIGHTS[night].name} đã sáng lại!` : 'Đêm chưa qua…';
-  $('res-text').textContent = `${why[reason]} Điểm đêm này: ${sim.score}. Tổng điểm: ${totalScore}.`;
+  const why = { all_lit: 'Mọi ngọn Đèn Lồng Lớn đã sáng.', dawn: 'Trời đã sáng mà đảo vẫn chìm trong sương…', no_flames: 'Ngọn lửa của Mây đã tắt…' };
+  const t = Math.floor(sim.timeLeft());
+  const lit = sim.lanterns.filter((l) => l.lit).length;
+  $('res-eyebrow').textContent = `Đêm ${night} · ${NIGHTS[night].name}`;
+  $('res-title').textContent = won ? 'Đảo đã sáng lại!' : 'Đêm chưa qua…';
+  $('res-text').textContent = why[reason];
+  $('res-stats').innerHTML = [
+    ['Đèn đã thắp', `${lit}/${sim.lanterns.length}`],
+    ['Ngọn Lửa còn', p.flames],
+    ['Thời gian còn', `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`],
+    ['Điểm đêm này', won ? sim.score : 0],
+  ]
+    .map(([k, v]) => `<div class="stat"><small>${k}</small><b>${v}</b></div>`)
+    .join('') + `<div class="stat total"><small>Tổng điểm hành trình</small><b>${totalScore}</b></div>`;
   $('res-next').classList.toggle('hidden', !won);
+  $('res-retry').classList.toggle('primary', !won);
   show('scr-result');
 }
 
 document.addEventListener('click', (e) => {
-  const act = e.target.closest('button')?.dataset.act;
-  if (!act) return;
+  const b = e.target.closest('button');
+  const act = b?.dataset.act;
+  if (!act) {
+    if (mode === 'playing' && !document.pointerLockElement) lockMouse();
+    return;
+  }
   audio.unlock();
   audio.play('ui');
   if (act === 'new') {
     totalScore = 0;
     goIntro(1);
+  } else if (act === 'night') {
+    totalScore = 0;
+    goIntro(Number(b.dataset.night));
   } else if (act === 'play') startPlay();
   else if (act === 'next') goIntro(night + 1);
   else if (act === 'retry') goIntro(night);
@@ -182,15 +245,23 @@ document.addEventListener('click', (e) => {
     show('scr-settings');
   } else if (act === 'back') show(settingsReturn);
 });
-$('set-volume').value = settings.volume;
-$('set-sens').value = settings.sens;
+settings.sens = Math.min(0.5, Math.max(0.02, settings.sens > 0.5 ? 0.15 : settings.sens));
+const syncSettingsUi = () => {
+  $('set-volume').value = settings.volume;
+  $('set-sens').value = settings.sens;
+  $('out-volume').textContent = `${Math.round(settings.volume * 100)}%`;
+  $('out-sens').textContent = settings.sens.toFixed(2);
+};
+syncSettingsUi();
 $('set-volume').addEventListener('input', (e) => {
   settings.volume = Number(e.target.value);
   audio.setVolume(settings.volume);
+  syncSettingsUi();
   saveSettings();
 });
 $('set-sens').addEventListener('input', (e) => {
   settings.sens = Number(e.target.value);
+  syncSettingsUi();
   saveSettings();
 });
 
@@ -198,14 +269,53 @@ $('set-sens').addEventListener('input', (e) => {
 const held = new Set();
 const latched = new Set();
 let camYaw = 0;
+let camPitch = 0.42; // client-only camera tilt (radians); not part of the contract input
 const keyName = (e) => (e.code === 'Space' ? ' ' : e.code.startsWith('Shift') ? 'shift' : e.key.toLowerCase());
+
+// Pointer lock: hide the cursor while playing; mouse movement turns the camera.
+let lockedOnce = false;
+function lockMouse() {
+  const el = renderer.domElement;
+  if (document.pointerLockElement === el || !el.requestPointerLock) return;
+  try {
+    const r = el.requestPointerLock();
+    if (r && r.catch) r.catch(() => {});
+  } catch {}
+}
+function releaseMouse() {
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+document.addEventListener('pointerlockchange', () => {
+  const locked = document.pointerLockElement === renderer.domElement;
+  document.body.classList.toggle('locked', locked);
+  if (locked) lockedOnce = true;
+  else if (mode === 'playing' && lockedOnce) pause(); // Esc releases the lock -> pause
+});
+window.addEventListener('mousemove', (e) => {
+  if (mode !== 'playing' || document.pointerLockElement !== renderer.domElement) return;
+  camYaw -= e.movementX * settings.sens;
+  camPitch = Math.min(1.1, Math.max(0.05, camPitch + e.movementY * settings.sens * 0.01));
+});
+
+const visibleButtons = () => [...document.querySelectorAll('.screen:not(.hidden) button:not(:disabled):not(.hidden)')];
 window.addEventListener('keydown', (e) => {
   const k = keyName(e);
   if ((k === 'escape' || k === 'p') && !e.repeat) {
     if (mode === 'playing') return pause();
-    if (mode === 'paused') return resume();
+    if (mode === 'paused' && $('scr-settings').classList.contains('hidden')) return resume();
+    if (!$('scr-settings').classList.contains('hidden')) return show(settingsReturn);
   }
-  if (k === 'enter' && mode === 'intro') return startPlay();
+  if (k === 'enter' && mode === 'intro') {
+    e.preventDefault();
+    return startPlay();
+  }
+  if (mode !== 'playing' && (k === 'arrowdown' || k === 'arrowup')) {
+    const bs = visibleButtons();
+    const i = bs.indexOf(document.activeElement);
+    bs[(i + (k === 'arrowdown' ? 1 : -1) + bs.length) % bs.length]?.focus();
+    e.preventDefault();
+    return;
+  }
   if (k === ' ' || k.startsWith('arrow')) e.preventDefault();
   held.add(k);
   latched.add(k);
@@ -214,12 +324,6 @@ window.addEventListener('keyup', (e) => held.delete(keyName(e)));
 window.addEventListener('blur', () => {
   held.clear();
   pause();
-});
-let dragging = false;
-renderer.domElement.addEventListener('mousedown', () => (dragging = true));
-window.addEventListener('mouseup', () => (dragging = false));
-window.addEventListener('mousemove', (e) => {
-  if (dragging && mode === 'playing') camYaw -= e.movementX * settings.sens;
 });
 const pressed = (k) => held.has(k) || latched.has(k);
 function buildInput() {
@@ -417,6 +521,7 @@ function updateHud() {
   if (changed('t', t)) {
     $('clock-time').textContent = `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
     $('clock-night').textContent = `Đêm ${night} · ${sim.map.name}`;
+    $('clock-bar').style.setProperty('--w', `${(100 * sim.timeLeft()) / sim.duration}%`);
     $('hud-clock').classList.toggle('danger', t <= 30);
     if (t <= 10 && t > 0) audio.play('countdown');
   }
@@ -432,16 +537,20 @@ function updateHud() {
     el.classList.add('pop');
   }
   drawMinimap();
-  moteSlots.forEach((s, i) => s.classList.toggle('on', i < p.carried));
-  const cd = (el, ticks, max) => el.style.setProperty('--p', `${100 * (1 - ticks / max)}%`);
+  if (changed('carried', p.carried)) {
+    moteSlots.forEach((s, i) => s.classList.toggle('on', i < p.carried));
+    $('motes-label').textContent = `Đom đóm ${p.carried}/${TUNING.carry_capacity}`;
+  }
+  const cd = (el, ticks, max) => el.style.setProperty('--rem', `${(100 * ticks) / max}%`);
   cd($('cd-dash'), p.charm > 0 ? 0 : p.dashCd, RULES.dash_cd_ticks);
   $('cd-dash').classList.toggle('charm', p.charm > 0);
   cd($('cd-pulse'), p.pulseCd, RULES.pulse_cd_ticks);
-  $('cd-pulse').style.opacity = p.carried >= TUNING.pulse_cost ? 1 : 0.45;
+  $('cd-pulse').classList.toggle('dim', p.carried < TUNING.pulse_cost);
+  $('lock-hint').classList.toggle('hidden', !!document.pointerLockElement || params.has('play'));
 
   const near = sim.lanterns.filter((l) => !l.lit && distXZ(l.pos, p.pos) <= TUNING.interact_radius).sort((a, b) => distXZ(a.pos, p.pos) - distXZ(b.pos, p.pos))[0];
   $('hud-prompt').classList.toggle('hidden', !near);
-  if (near) $('hud-prompt').textContent = `E — Nạp ánh sáng (${near.deposited}/${TUNING.lantern_cost})`;
+  if (near && changed('prompt', `${near.id}${near.deposited}`)) $('hud-prompt').innerHTML = `<kbd>E</kbd> — Nạp ánh sáng (${near.deposited}/${TUNING.lantern_cost})`;
 
   const windSoon = sim.windEnabled && sim.windTicks === 0 && sim.simTick % RULES.wind_every_ticks >= RULES.wind_every_ticks - RULES.wind_warn_ticks;
   $('hud-wind').classList.toggle('hidden', !(windSoon || sim.windTicks > 0));
@@ -623,7 +732,8 @@ function renderWorld(time, dt) {
 
   const yaw = (camYaw * Math.PI) / 180;
   const target = new THREE.Vector3(p.pos[0], p.pos[1] + 1.2, p.pos[2]);
-  const camPos = new THREE.Vector3(target.x - Math.sin(yaw) * 9.5, target.y + 5, target.z - Math.cos(yaw) * 9.5);
+  const horiz = 10 * Math.cos(camPitch);
+  const camPos = new THREE.Vector3(target.x - Math.sin(yaw) * horiz, target.y + 0.5 + 10 * Math.sin(camPitch), target.z - Math.cos(yaw) * horiz);
   if (shake > 0) {
     shake = Math.max(0, shake - dt);
     camPos.x += (Math.random() - 0.5) * shake * 1.2;
@@ -691,6 +801,7 @@ function frame() {
 }
 
 loadNight(Number(params.get('night')) || 1);
+renderNightCards();
 show('scr-menu');
 if (params.has('night')) {
   goIntro(Number(params.get('night')));

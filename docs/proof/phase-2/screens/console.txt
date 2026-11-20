@@ -1,13 +1,13 @@
 browser: C:/Program Files/Google/Chrome/Application/chrome.exe (GPU)
 viewport 1280x720
-night 1: avg FPS 63.0 over 4s (samples 65,55,66,66)
-  HUD: 04:53Đêm 1 · Đảo Bến | 0 | LướtShift
-      Tỏa sángF
+night 1: avg FPS 66.0 over 4s (samples 66,66,66,66)
+  HUD: Ngọn Lửa | 04:53Đêm 1 · Đảo Bến | Điểm0 | Đom đóm 1/10 | Shift
+      F
 night 2: avg FPS 66.0 over 4s (samples 66,66,66,66)
-  HUD: 05:23Đêm 2 · Đảo Cau | 0 | LướtShift
-      Tỏa sángF
+  HUD: Ngọn Lửa | 05:23Đêm 2 · Đảo Cau | Điểm0 | Đom đóm 1/10 | Shift
+      F
 night 3: avg FPS 66.0 over 4s (samples 66,66,66,66)
-  HUD: L1 · 19 m | 05:53Đêm 3 · Đảo Chuông | 0 | LướtShift
-      Tỏa sángF
+  HUD: Ngọn Lửa | 05:53Đêm 3 · Đảo Chuông | Điểm0 | Đom đóm 0/10 | Shift
+      F | L1 · 19 m
 console errors: 0
 
