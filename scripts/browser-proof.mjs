@@ -8,7 +8,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const OUT = process.argv[2] || join(ROOT, 'docs', 'proof', 'phase-3', 'screens');
+const OUT = process.argv[2] || join(ROOT, 'docs', 'proof', 'phase-4', 'screens');
 const PORT = 8123;
 const DBG = 9333;
 const CANDIDATES = [
@@ -115,6 +115,13 @@ try {
   await tap('Escape', 'Escape');
   await wait(500);
   await shot('06-pause.png');
+  await evalJs(`document.querySelector('#scr-pause [data-act=settings]').click()`);
+  await wait(400);
+  await shot('07-settings.png');
+  await go('');
+  await evalJs(`document.querySelector('[data-act=leaderboard]').click()`);
+  await wait(800);
+  await shot('08-leaderboard.png');
 
   const text = `browser: ${browserPath} (${process.env.GPU ? 'GPU' : 'SwiftShader software rendering'})\nviewport 1280x720\n${report.join('\n')}\nconsole errors: ${errors.length}\n${errors.join('\n')}\n`;
   writeFileSync(join(OUT, 'console.txt'), text);

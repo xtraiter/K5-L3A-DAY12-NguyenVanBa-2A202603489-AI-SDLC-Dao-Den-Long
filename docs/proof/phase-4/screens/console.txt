@@ -1,0 +1,13 @@
+browser: C:/Program Files/Google/Chrome/Application/chrome.exe (GPU)
+viewport 1280x720
+night 1: avg FPS 59.4 over 4s (samples 57,61,60,60)
+  HUD: Ngọn Lửa | 03:53Đêm 1 · Đảo Bến | Điểm0Giữ sáng 0/3 tới bình minh | Đom đóm 1/10 | Shift trái
+      F | Bóng Mực xuất hiệnBóng Mực xuất hiện
+night 2: avg FPS 59.9 over 4s (samples 60,60,60,59)
+  HUD: Ngọn Lửa | 04:23Đêm 2 · Đảo Cau | Điểm0Giữ sáng 0/4 tới bình minh | Đom đóm 1/10 | Shift trái
+      F | Bóng Mực xuất hiệnBóng Mực xuất hiện
+night 3: avg FPS 60.0 over 4s (samples 60,60,60,60)
+  HUD: Ngọn Lửa | 04:54Đêm 3 · Đảo Chuông | Điểm0Giữ sáng 0/5 tới bình minh | Đom đóm 0/10 | Shift trái
+      F | L1 · 19 m | Bóng Mực xuất hiệnBóng Mực xuất hiện
+console errors: 0
+

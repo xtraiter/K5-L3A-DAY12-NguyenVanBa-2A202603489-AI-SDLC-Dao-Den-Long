@@ -53,15 +53,153 @@ function trees(group, ground, rng, count, maxR, cx = 0, cz = 0, avoid = []) {
   }
 }
 
-/** Build static terrain for a night. Returns a Group. */
-export function buildTerrain(map, rng) {
+// ---------- island props (instanced: one draw call per kind) ----------
+const _m4 = new THREE.Matrix4();
+const _q = new THREE.Quaternion();
+const _e = new THREE.Euler();
+const _s = new THREE.Vector3();
+const _p = new THREE.Vector3();
+function instanced(geo, mat, items, colorFn) {
+  const im = new THREE.InstancedMesh(geo, mat, Math.max(1, items.length));
+  items.forEach(([x, y, z, sx, sy, sz, ry, rx = 0], i) => {
+    _q.setFromEuler(_e.set(rx, ry, 0));
+    im.setMatrixAt(i, _m4.compose(_p.set(x, y, z), _q, _s.set(sx, sy, sz)));
+    if (colorFn) im.setColorAt(i, new THREE.Color(colorFn(i)));
+  });
+  im.count = items.length;
+  im.instanceMatrix.needsUpdate = true;
+  return im;
+}
+
+function makeHouse(x, y, z, rot) {
+  const h = new THREE.Group();
+  for (const [px, pz] of [[-1.4, -1.1], [1.4, -1.1], [-1.4, 1.1], [1.4, 1.1]]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 1.4, 6), MAT.wood);
+    post.position.set(px, 0.7, pz);
+    h.add(post);
+  }
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.2, 2.8), MAT.wood);
+  floor.position.y = 1.45;
+  const walls = new THREE.Mesh(new THREE.BoxGeometry(3, 1.6, 2.4), std(0x8a6a45));
+  walls.position.y = 2.35;
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(2.6, 1.8, 4), std(0x6e5a3a));
+  roof.position.y = 4.05;
+  roof.rotation.y = Math.PI / 4;
+  roof.scale.z = 0.85;
+  const winMat = new THREE.MeshBasicMaterial({ color: 0xffc36b });
+  for (const wx of [-0.7, 0.7]) {
+    const w = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), winMat);
+    w.position.set(wx, 2.4, 1.21);
+    h.add(w);
+  }
+  const door = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 1.1), std(0x3b2a1c));
+  door.position.set(0, 2.1, -1.21);
+  door.rotation.y = Math.PI;
+  const stairs = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.1, 1.2), MAT.wood);
+  stairs.position.set(0, 0.75, -1.9);
+  stairs.rotation.x = -0.6;
+  h.add(floor, walls, roof, door, stairs);
+  h.position.set(x, y, z);
+  h.rotation.y = rot;
+  return h;
+}
+
+function makeDock(x, z, outward) {
+  const d = new THREE.Group();
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.15, 6), MAT.wood);
+  deck.position.set(0, -0.1, 3);
+  d.add(deck);
+  for (const [px, pz] of [[-0.8, 1], [0.8, 1], [-0.8, 5.6], [0.8, 5.6]]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.2, 6), MAT.wood);
+    post.position.set(px, -0.9, pz);
+    d.add(post);
+  }
+  // little cloud boat moored at the end, with its own lantern
+  const boat = new THREE.Group();
+  const hull = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.45, 0.5, 10, 1, false, 0, Math.PI), std(0x7a4a2a, { side: THREE.DoubleSide }));
+  hull.rotation.z = Math.PI / 2;
+  hull.scale.set(1, 3, 1);
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.6, 5), MAT.wood);
+  mast.position.y = 0.8;
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffb347 }));
+  lamp.position.y = 1.6;
+  boat.add(hull, mast, lamp);
+  boat.position.set(1.8, -0.55, 6.2);
+  boat.rotation.y = Math.PI / 2;
+  d.add(boat);
+  d.userData.boat = boat;
+  d.position.set(x, 0, z);
+  d.rotation.y = Math.atan2(outward[0], outward[1]);
+  return d;
+}
+
+function addProps(g, map, rng) {
+  const avoid = [
+    ...map.lanterns.map((p) => [p, 5]),
+    ...map.motePoints.map((p) => [p, 1.6]),
+    ...map.pads.map((p) => [p.pos, 2.5]),
+    ...map.charms.map((c) => [c.pos, 2]),
+    [map.start, 4],
+  ];
+  const free = (x, z, pad = 0) => avoid.every(([p, r]) => Math.hypot(p[0] - x, p[2] - z) > r + pad);
+  const isles = map.id === 2 ? map.islands : [[0, 0, map.id === 3 ? 45 : 40]];
+  const sample = (n, pad, rMin = 3, edge = 0.94) => {
+    const out = [];
+    for (let i = 0; i < n * 3 && out.length < n; i++) {
+      const [cx, cz, R] = isles[Math.floor(rng() * isles.length)];
+      const r = rMin + Math.sqrt(rng()) * (R * edge - rMin);
+      const a = rng() * Math.PI * 2;
+      const x = cx + r * Math.cos(a);
+      const z = cz + r * Math.sin(a);
+      const y = map.ground(x, z);
+      if (y === null || y % 3 !== 0 || !free(x, z, pad)) continue; // flat tiers only (skip ramps)
+      if (map.id === 3 && x * x + z * z < 9 * 9) continue; // keep the bell tower top clear
+      out.push([x, y, z]);
+    }
+    return out;
+  };
+  const rot = () => rng() * Math.PI * 2;
+  const rocks = sample(55, 0.8).map(([x, y, z]) => {
+    const s = 0.4 + rng() * 1.1;
+    return [x, y + s * 0.2, z, s * (1 + rng() * 0.6), s * 0.6, s, rot(), rng() * 0.4];
+  });
+  g.add(instanced(new THREE.IcosahedronGeometry(1, 0), std(0x6b7088, { flatShading: true }), rocks, () => [0x6b7088, 0x5d6178, 0x7d8296][Math.floor(rng() * 3)]));
+  const bushes = sample(70, 0.6).map(([x, y, z]) => {
+    const s = 0.5 + rng() * 0.7;
+    return [x, y + s * 0.45, z, s * 1.3, s, s * 1.2, rot()];
+  });
+  g.add(instanced(new THREE.IcosahedronGeometry(1, 1), std(0x2f6b4f, { flatShading: true }), bushes, () => [0x2f6b4f, 0x356f3e, 0x28584a][Math.floor(rng() * 3)]));
+  const grass = sample(420, 0, 2, 0.97).map(([x, y, z]) => [x, y + 0.2, z, 0.12 + rng() * 0.1, 0.35 + rng() * 0.35, 0.12, rot(), (rng() - 0.5) * 0.4]);
+  g.add(instanced(new THREE.ConeGeometry(0.5, 1, 3), std(0x3f7a52), grass));
+  const flowers = sample(160, 0.3).map(([x, y, z]) => [x, y + 0.3, z, 0.12, 0.12, 0.12, 0]);
+  const petal = [0xffd1e0, 0xfff1a8, 0xf5f1e6, 0xffb3a7, 0xc9b6ff];
+  g.add(instanced(new THREE.SphereGeometry(1, 6, 4), new THREE.MeshStandardMaterial({ roughness: 0.6, emissive: 0x332211, emissiveIntensity: 0.4 }), flowers, () => petal[Math.floor(rng() * petal.length)]));
+  const stalks = [];
+  for (const [x, y, z] of sample(12, 1.5, 8)) {
+    for (let k = 0; k < 7; k++) {
+      const h = 3 + rng() * 3;
+      stalks.push([x + (rng() - 0.5) * 1.4, y + h / 2, z + (rng() - 0.5) * 1.4, 1, h, 1, 0, (rng() - 0.5) * 0.15]);
+    }
+  }
+  g.add(instanced(new THREE.CylinderGeometry(0.07, 0.09, 1, 5), std(0x6f9a4a), stalks));
+  // stilt houses near the shore, facing inland
+  const houseSpots = sample(map.id === 2 ? 6 : 4, 4, isles[0][2] * 0.72, 0.86).slice(0, map.id === 2 ? 4 : 3);
+  for (const [x, y, z] of houseSpots) g.add(makeHouse(x, y, z, Math.atan2(-x + (map.id === 2 && x > 35 ? 70 : 0), -z)));
+  // docks with cloud boats on the outer rim
+  const docks = map.id === 2 ? [[0, -28, [0, -1]], [70, 28, [0, 1]]] : [[-0.766 * isles[0][2], -0.643 * isles[0][2], [-0.766, -0.643]], [0.94 * isles[0][2], -0.34 * isles[0][2], [0.94, -0.34]]];
+  for (const [x, z, out] of docks) if (free(x, z)) g.add(makeDock(x - out[0] * 0.8, z - out[1] * 0.8, out));
+}
+
+/** Build static terrain for a night. Returns a Group. opts.decor=false gives the bare standard island (bench). */
+export function buildTerrain(map, rng, opts = {}) {
+  const decor = opts.decor !== false;
   const g = new THREE.Group();
   const sea = new THREE.Mesh(new THREE.CircleGeometry(400, 48), std(C.cloudSea, { roughness: 1 }));
   sea.rotation.x = -Math.PI / 2;
   sea.position.y = -14;
   g.add(sea);
   const cloudMat = std(0x1c4a5e, { transparent: true, opacity: 0.8 });
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < (decor ? 50 : 0); i++) {
     const a = rng() * Math.PI * 2;
     const r = 60 + rng() * 120;
     const c = new THREE.Mesh(new THREE.SphereGeometry(4 + rng() * 6, 10, 8), cloudMat);
@@ -72,11 +210,11 @@ export function buildTerrain(map, rng) {
   const avoid = map.lanterns;
   if (map.id === 1) {
     g.add(islandDisk(40));
-    trees(g, map.ground, rng, 45, 34, 0, 0, avoid);
+    if (decor) trees(g, map.ground, rng, 45, 34, 0, 0, avoid);
   } else if (map.id === 2) {
     for (const [x, z, r] of map.islands) {
       g.add(islandDisk(r, x, z));
-      trees(g, map.ground, rng, 22, 22, x, z, [...avoid, ...map.pads.map((p) => p.pos)]);
+      if (decor) trees(g, map.ground, rng, 22, 22, x, z, [...avoid, ...map.pads.map((p) => p.pos)]);
     }
     const { x, z } = map.bridge;
     const bridge = new THREE.Mesh(new THREE.BoxGeometry(x[1] - x[0] + 2, 0.3, z[1] - z[0]), MAT.wood);
@@ -124,8 +262,9 @@ export function buildTerrain(map, rng) {
       g.add(holder);
     }
     for (const p of map.pads) g.add(pad(p.pos));
-    trees(g, (x, z) => (x * x + z * z > 26 * 26 ? map.ground(x, z) : null), rng, 40, 40, 0, 0, avoid);
+    if (decor) trees(g, (x, z) => (x * x + z * z > 26 * 26 ? map.ground(x, z) : null), rng, 40, 40, 0, 0, avoid);
   }
+  if (decor) addProps(g, map, rng);
   return g;
 }
 

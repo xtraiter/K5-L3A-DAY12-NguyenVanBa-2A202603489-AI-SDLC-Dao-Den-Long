@@ -199,6 +199,52 @@
     body.portrait #scr-menu { place-items: end center; padding: 24px 16px 36px; background: linear-gradient(0deg, rgba(8, 11, 28, .95) 35%, rgba(8, 11, 28, 0) 85%); }
     body.portrait .hang { display: none; }
     @media (max-width: 720px) { #minimap-wrap { display: none; } .nights { grid-template-columns: 1fr; } .hang { display: none; } }
+
+    /* ---- Ticket-04 accessibility: every UI text >= 18 px at 1280x720; large text = x1.25 ---- */
+    :root { --fs: 1; }
+    body.bigtext { --fs: 1.25; }
+    body { font-size: calc(18px * var(--fs)); }
+    .label, .eyebrow, small, .night small, .stat small, .keys, .hint, #hud-need, #hud-arrow-dist, #fps, kbd, .reason,
+    .elder small, .lede, .btn, .night b, .row, select, #lock-hint, .cap, .board, .savebox, input, #hud-prompt, #hud-wind
+      { font-size: calc(18px * var(--fs)) !important; }
+    .label, .eyebrow { letter-spacing: .12em; }
+    kbd { height: auto; min-height: 30px; padding: 2px 8px; }
+    #clock-time, #hud-score { font-size: calc(34px * var(--fs)); }
+    #toast { font-size: calc(24px * var(--fs)); }
+    .heading { font-size: calc(clamp(30px, 5vw, 44px) * var(--fs)); }
+    .elder p { font-size: calc(18px * var(--fs)); }
+    .night { padding: 10px; }
+    .card { max-height: 92vh; overflow-y: auto; }
+    .card.wide { width: min(760px, 100%); }
+    #hud-flames-wrap { top: 14px; } #hud-right { top: 14px; }
+    #hud-bottom .label { margin-bottom: 4px; }
+    .ab { width: auto; }
+    /* captions (subtitles for sounds/events) */
+    #captions { position: absolute; left: 22px; top: 96px; display: flex; flex-direction: column; gap: 6px; max-width: 420px; }
+    .cap { padding: 6px 12px; border-radius: 8px; background: rgba(8, 11, 28, .78); border-left: 4px solid var(--gold); animation: fadeIn .2s; }
+    .cap.danger { border-left-color: var(--danger); }
+    .cap.shade { border-left-color: #7A3CFF; }
+    body.cb .cap.shade { border-left-color: #00B3FF; }
+    .spawn-arrow { position: absolute; width: 0; height: 0; border-left: 13px solid transparent; border-right: 13px solid transparent;
+                   border-bottom: 28px solid #7A3CFF; filter: drop-shadow(0 0 8px #7A3CFF); transform-origin: 50% 60%; }
+    body.cb .spawn-arrow { border-bottom-color: #00B3FF; filter: drop-shadow(0 0 8px #00B3FF); }
+    /* key rebinding */
+    .row.kb { padding: 6px 0; }
+    .keybtn { min-width: 150px; padding: 6px 14px; }
+    .row.kb.conflict .keybtn { border-color: var(--danger); color: var(--danger); }
+    .kb-warn { color: var(--danger); margin: 10px 0 0; text-align: left; }
+    /* leaderboard */
+    .savebox { margin-top: 18px; text-align: left; }
+    .saverow { display: flex; gap: 10px; margin-top: 6px; }
+    .saverow input { flex: 1; min-width: 0; font: inherit; color: var(--text); background: rgba(8, 11, 28, .7); border: 1px solid var(--line);
+                     border-radius: 999px; padding: 10px 16px; }
+    .savemsg { display: block; min-height: 1.4em; margin-top: 6px; color: var(--muted); }
+    .savemsg.err { color: var(--danger); }
+    .board { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    .board th, .board td { padding: 8px 10px; text-align: left; border-bottom: 1px solid rgba(245, 241, 230, .08); }
+    .board th { color: var(--muted); font-weight: 500; }
+    .board td:nth-child(3) { color: var(--gold); font-weight: 700; font-variant-numeric: tabular-nums; }
+    .board tr.me td { background: rgba(255, 179, 71, .14); }
   </style>
   <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
 </head>
@@ -225,6 +271,8 @@
     <div id="hud-arrow" class="hidden"></div>
     <div id="hud-arrow-dist" class="hidden"></div>
     <div id="lock-hint" class="hidden">Bấm chuột vào màn hình để điều khiển camera</div>
+    <div id="captions" aria-live="polite"></div>
+    <div id="spawn-arrows"></div>
   </div>
 
   <div id="scr-menu" class="screen">
@@ -235,6 +283,7 @@
       <p class="lede">Sương đen đã nuốt ánh sáng của quần đảo. Cùng Mây, người giữ đèn nhỏ tuổi, gom đom đóm và thắp lại các Đèn Lồng Lớn trước bình minh.</p>
       <div class="btns">
         <button class="btn primary" data-act="new">Bắt đầu hành trình</button>
+        <button class="btn" data-act="leaderboard">Bảng xếp hạng</button>
         <button class="btn" data-act="settings">Cài đặt</button>
       </div>
       <div class="nights" id="night-cards"></div>
@@ -270,6 +319,11 @@
       <h1 class="heading" id="res-title"></h1>
       <p class="reason" id="res-text"></p>
       <div class="stats" id="res-stats"></div>
+      <form class="savebox" data-save>
+        <label>Lưu điểm vào bảng xếp hạng</label>
+        <div class="saverow"><input name="name" maxlength="12" placeholder="Tên (3–12 ký tự)" autocomplete="off" /><button class="btn primary" type="submit">Lưu</button></div>
+        <small class="savemsg" aria-live="polite"></small>
+      </form>
       <div class="btns">
         <button class="btn primary" id="res-next" data-act="next">Đêm kế tiếp</button>
         <button class="btn" id="res-retry" data-act="retry">Chơi lại Đêm này</button>
@@ -284,6 +338,21 @@
       <h1 class="heading">Bình Minh</h1>
       <p class="reason">Cả ba hòn đảo đã sáng lại. Cảm ơn con, Mây.</p>
       <div class="stats"><div class="stat total"><small>Tổng điểm</small><b id="dawn-score"></b></div></div>
+      <form class="savebox" data-save>
+        <label>Lưu điểm vào bảng xếp hạng</label>
+        <div class="saverow"><input name="name" maxlength="12" placeholder="Tên (3–12 ký tự)" autocomplete="off" /><button class="btn primary" type="submit">Lưu</button></div>
+        <small class="savemsg" aria-live="polite"></small>
+      </form>
+      <div class="btns"><button class="btn" data-act="menu">Về menu</button></div>
+    </div>
+  </div>
+
+  <div id="scr-board" class="screen hidden">
+    <div class="card wide">
+      <p class="eyebrow">Top 10 người giữ đèn</p>
+      <h1 class="heading">Bảng xếp hạng</h1>
+      <table class="board"><thead><tr><th>#</th><th>Tên</th><th>Điểm</th><th>Đêm thắng</th><th>Ngày</th></tr></thead><tbody id="board-rows"></tbody></table>
+      <p class="reason" id="board-note"></p>
       <div class="btns"><button class="btn primary" data-act="menu">Về menu</button></div>
     </div>
   </div>
@@ -313,6 +382,10 @@
         <label class="row"><span>Hiện FPS</span><input id="set-showfps" type="checkbox" /></label>
         <label class="row"><span>Độ phân giải</span><input id="set-scale" type="range" min="0.5" max="1" step="0.05" /><output id="out-scale"></output></label>
         <label class="row"><span>Bảng màu dễ phân biệt</span><input id="set-cb" type="checkbox" /></label>
+        <label class="row"><span>Giảm chuyển động (tắt rung camera, chớp màn hình)</span><input id="set-motion" type="checkbox" /></label>
+        <label class="row"><span>Chữ lớn (×1.25)</span><input id="set-bigtext" type="checkbox" /></label>
+        <p class="eyebrow" style="margin-top: 18px">Phím điều khiển</p>
+        <div id="keybinds"></div>
       </div>
       <div class="btns"><button class="btn primary" data-act="back">Xong</button></div>
     </div>

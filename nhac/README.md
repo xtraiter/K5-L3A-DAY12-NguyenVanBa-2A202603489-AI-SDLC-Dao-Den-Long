@@ -4,7 +4,7 @@ Bỏ file vào đây, game tự nạp. File nào thiếu thì bỏ qua, game v�
 
 | File | Khi phát |
 |---|---|
-| `maintheme.mp3` | Nhạc nền (lặp), tùy chọn: hiện chưa có file |
+| `maintheme.mp3` | Nhạc menu (lặp) |
 | `pickup.mp3` | Nhặt đom đóm |
 | `deposit.mp3` | Nạp ánh sáng vào đèn |
 | `lit.mp3` | Đèn được thắp |

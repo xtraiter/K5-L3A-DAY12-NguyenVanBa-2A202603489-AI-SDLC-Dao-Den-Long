@@ -7,6 +7,10 @@ import { mulberry32 } from '../sim/rng.js';
 import { GameAudio } from './audio.js';
 import { C, buildTerrain, makeLantern, makePlayer, makeMote, makeShade, makeDrifter, makeCharm, setShadePalette } from './world.js';
 import { DemoBot } from './demo-bot.js';
+import { validName, makeEntry, addEntry, sortEntries } from '../leaderboard.js';
+import { ACTIONS, DEFAULT_KEYS, keyLabel, mountKeybinds, Captions } from './a11y.js';
+import { makeBenchSim, frameStats, BENCH } from '../sim/bench-scene.js';
+import { NEUTRAL_INPUT } from '../sim/sim.js';
 import { Particles, Fireflies, makeSky } from './fx.js';
 
 const $ = (id) => document.getElementById(id);
@@ -40,7 +44,17 @@ scene.fog = new THREE.FogExp2(C.fog, 0.022);
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
 // Any aspect ratio: keep at least the horizontal view of a 16:10 screen on tall/portrait screens
 // (vertical FOV grows), keep 60° vertical on wide/ultrawide screens.
+const BENCH_MODE = params.has('bench'); // Ticket-04 benchmark scene (scripts/bench.mjs)
 function fitView() {
+  if (BENCH_MODE) {
+    // fixed 1280x720 drawing buffer, pixel ratio 1, 60° vertical FOV, whatever the window chrome is
+    renderer.setPixelRatio(1);
+    renderer.setSize(1280, 720);
+    camera.aspect = 1280 / 720;
+    camera.fov = 60;
+    camera.updateProjectionMatrix();
+    return;
+  }
   const w = window.innerWidth;
   const h = window.innerHeight;
   const aspect = w / h;
@@ -165,7 +179,103 @@ function renderNightCards() {
 }
 
 // ---------- screens ----------
-const SCREENS = ['scr-menu', 'scr-intro', 'scr-result', 'scr-dawn', 'scr-pause', 'scr-settings'];
+const SCREENS = ['scr-menu', 'scr-intro', 'scr-result', 'scr-dawn', 'scr-pause', 'scr-settings', 'scr-board'];
+
+// ---------- run tracking + leaderboard (Ticket-04 §3) ----------
+let runSeed = 0;
+let nightsWon = 0;
+const newRun = () => {
+  runSeed = (Date.now() & 0xfffffff) >>> 0;
+  nightsWon = 0;
+  totalScore = 0;
+};
+const LOCAL_LB = 'ddl-leaderboard';
+const localBoard = () => {
+  try {
+    return sortEntries(JSON.parse(localStorage.getItem(LOCAL_LB) || '{"entries":[]}').entries);
+  } catch {
+    return [];
+  }
+};
+// The local server stores the board on disk (data/leaderboard.json); a static host (Cloudflare) falls back to localStorage.
+async function fetchBoard() {
+  try {
+    const r = await fetch('./api/leaderboard', { cache: 'no-store' });
+    if (r.ok) return { entries: (await r.json()).entries, where: 'tệp data/leaderboard.json trên máy' };
+  } catch {}
+  return { entries: localBoard(), where: 'bộ nhớ trình duyệt' };
+}
+async function saveScore(name) {
+  const payload = { name, score: totalScore, nights_won: nightsWon, seed: runSeed };
+  const entry = makeEntry(payload); // validates
+  try {
+    const r = await fetch('./api/leaderboard', { method: 'POST', body: JSON.stringify(payload) });
+    if (r.ok) return { entries: (await r.json()).entries, entry };
+    if (r.status === 400) throw new Error((await r.json()).error);
+  } catch (e) {
+    if (e.message && !/fetch|network|JSON/i.test(e.message)) throw e;
+  }
+  const entries = addEntry(localBoard(), entry);
+  try {
+    localStorage.setItem(LOCAL_LB, JSON.stringify({ entries }));
+  } catch {}
+  return { entries, entry };
+}
+async function showBoard(highlight) {
+  mode = 'board';
+  show('scr-board');
+  const { entries, where } = await fetchBoard();
+  $('board-rows').innerHTML = entries.length
+    ? entries
+        .map((e, i) => {
+          const me = highlight && e.name === highlight.name && e.achieved_at === highlight.achieved_at && e.score === highlight.score;
+          const date = e.achieved_at.slice(0, 16).replace('T', ' ');
+          return `<tr class="${me ? 'me' : ''}"><td>${i + 1}</td><td>${e.name.replace(/[<>&]/g, '')}</td><td>${e.score}</td><td>${e.nights_won}</td><td>${date}</td></tr>`;
+        })
+        .join('')
+    : '<tr><td colspan="5">Chưa có ai. Hãy là người đầu tiên!</td></tr>';
+  $('board-note').textContent = `Lưu tại: ${where}.`;
+}
+function resetSaveForms() {
+  for (const f of document.querySelectorAll('[data-save]')) {
+    f.querySelector('input').value = '';
+    f.querySelector('input').disabled = false;
+    f.querySelector('button').disabled = false;
+    f.querySelector('.savemsg').textContent = '';
+    f.querySelector('.savemsg').classList.remove('err');
+  }
+}
+for (const f of document.querySelectorAll('[data-save]')) {
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = f.querySelector('.savemsg');
+    const name = f.querySelector('input').value.trim();
+    if (!validName(name)) {
+      msg.textContent = `${settings.cb ? '⚠ ' : ''}Tên phải dài 3–12 ký tự, chỉ gồm chữ, số hoặc _`;
+      msg.classList.add('err');
+      return;
+    }
+    try {
+      f.querySelector('button').disabled = true;
+      const { entry } = await saveScore(name);
+      f.querySelector('input').disabled = true;
+      showBoard(entry);
+    } catch (err) {
+      f.querySelector('button').disabled = false;
+      msg.textContent = err.message;
+      msg.classList.add('err');
+    }
+  });
+}
+// Menu music (nhac/maintheme.mp3): browsers only allow audio after a user gesture.
+const menuMusic = () => {
+  if (mode === 'menu' || mode === 'board' || (mode === 'settings-menu')) {
+    audio.unlock();
+    audio.playBgm();
+  }
+};
+window.addEventListener('pointerdown', menuMusic);
+window.addEventListener('keydown', menuMusic);
 let settingsReturn = 'scr-menu';
 function show(id) {
   for (const s of SCREENS) $(s).classList.toggle('hidden', s !== id);
@@ -184,14 +294,15 @@ function show(id) {
 
 function goMenu() {
   mode = 'menu';
-  audio.stopBgm();
   loadNight(1);
   renderNightCards();
   show('scr-menu');
+  audio.playBgm(); // menu theme (keeps playing if already on)
 }
 let typer = 0;
 function goIntro(n) {
-  loadNight(n);
+  loadNight(n, (runSeed + n) >>> 0);
+  resetSaveForms();
   mode = 'intro';
   $('intro-num').textContent = String(n).padStart(2, '0');
   $('intro-night').textContent = `Đêm ${n} / 3`;
@@ -213,7 +324,7 @@ function startPlay() {
   mode = 'playing';
   show(null);
   lockMouse();
-  audio.playBgm();
+  audio.stopBgm(); // the theme plays in the menu only
 }
 function pause() {
   if (mode !== 'playing') return;
@@ -232,7 +343,9 @@ function finishNight(result, reason) {
   audio.play(result);
   const won = result === 'won';
   const p = sim.player;
+  $('scr-result').querySelector('[data-save]').classList.toggle('hidden', won); // save after a loss, or at dawn
   if (won) {
+    nightsWon += 1;
     totalScore += sim.score;
     progress.unlocked = Math.max(progress.unlocked, Math.min(3, night + 1));
     progress.best[night] = Math.max(progress.best[night] || 0, sim.score);
@@ -277,12 +390,13 @@ document.addEventListener('click', (e) => {
   audio.unlock();
   audio.play('ui');
   if (act === 'new') {
-    totalScore = 0;
+    newRun();
     goIntro(1);
   } else if (act === 'night') {
-    totalScore = 0;
+    newRun();
     goIntro(Number(b.dataset.night));
-  } else if (act === 'play') startPlay();
+  } else if (act === 'leaderboard') showBoard();
+  else if (act === 'play') startPlay();
   else if (act === 'next') goIntro(night + 1);
   else if (act === 'retry') goIntro(night);
   else if (act === 'menu') goMenu();
@@ -337,7 +451,28 @@ const held = new Set();
 const latched = new Set();
 let camYaw = 0;
 let camPitch = 0.42; // client-only camera tilt (radians); not part of the contract input
-const keyName = (e) => (e.code === 'Space' ? ' ' : e.code.startsWith('Shift') ? 'shift' : e.key.toLowerCase());
+// Key bindings (Ticket-04 §4): physical key codes, rebindable in Settings, saved with the settings.
+settings.keys = { ...DEFAULT_KEYS, ...(settings.keys || {}) };
+const kb = mountKeybinds($('keybinds'), settings.keys, () => {
+  saveSettings();
+  renderKeyHints();
+});
+function renderKeyHints() {
+  const k = settings.keys;
+  $('cd-dash').querySelector('kbd').textContent = keyLabel(k.dash);
+  $('cd-pulse').querySelector('kbd').textContent = keyLabel(k.pulse);
+  $('scr-menu').querySelector('.keys').innerHTML =
+    `<span><kbd>${keyLabel(k.up)}</kbd><kbd>${keyLabel(k.left)}</kbd><kbd>${keyLabel(k.down)}</kbd><kbd>${keyLabel(k.right)}</kbd> đi</span>` +
+    `<span>Chuột: camera</span><span><kbd>${keyLabel(k.jump)}</kbd> nhảy</span><span><kbd>${keyLabel(k.dash)}</kbd> lướt</span>` +
+    `<span><kbd>${keyLabel(k.interact)}</kbd> nạp đèn</span><span><kbd>${keyLabel(k.pulse)}</kbd> tỏa sáng</span><span><kbd>${keyLabel(k.pause)}</kbd> tạm dừng</span>`;
+}
+const isKey = (action, code) => settings.keys[action] === code;
+onSetting('set-motion', 'reduceMotion', (t) => t.checked);
+onSetting('set-bigtext', 'bigText', (t) => t.checked, () => document.body.classList.toggle('bigtext', !!settings.bigText));
+document.body.classList.toggle('bigtext', !!settings.bigText);
+$('set-motion').checked = !!settings.reduceMotion;
+$('set-bigtext').checked = !!settings.bigText;
+const captions = new Captions($('captions'));
 
 // Pointer lock: hide the cursor while playing; mouse movement turns the camera.
 let lockedOnce = false;
@@ -366,40 +501,44 @@ window.addEventListener('mousemove', (e) => {
 
 const visibleButtons = () => [...document.querySelectorAll('.screen:not(.hidden) button:not(:disabled):not(.hidden)')];
 window.addEventListener('keydown', (e) => {
-  const k = keyName(e);
-  if ((k === 'escape' || k === 'p') && !e.repeat) {
+  if (kb.isCapturing() || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  const code = e.code;
+  const settingsOpen = !$('scr-settings').classList.contains('hidden');
+  if ((isKey('pause', code) || code === 'Escape') && !e.repeat) {
     if (mode === 'playing') return pause();
-    if (mode === 'paused' && $('scr-settings').classList.contains('hidden')) return resume();
-    if (!$('scr-settings').classList.contains('hidden')) return show(settingsReturn);
+    if (settingsOpen) return show(settingsReturn);
+    if (mode === 'paused') return resume();
   }
-  if (k === 'enter' && mode === 'intro') {
+  if (code === 'Enter' && mode === 'intro') {
     e.preventDefault();
     return startPlay();
   }
-  if (mode !== 'playing' && (k === 'arrowdown' || k === 'arrowup')) {
+  if (mode !== 'playing' && (code === 'ArrowDown' || code === 'ArrowUp')) {
     const bs = visibleButtons();
     const i = bs.indexOf(document.activeElement);
-    bs[(i + (k === 'arrowdown' ? 1 : -1) + bs.length) % bs.length]?.focus();
+    bs[(i + (code === 'ArrowDown' ? 1 : -1) + bs.length) % bs.length]?.focus();
     e.preventDefault();
     return;
   }
-  if (k === ' ' || k.startsWith('arrow')) e.preventDefault();
-  held.add(k);
-  latched.add(k);
+  if (mode === 'playing') e.preventDefault();
+  held.add(code);
+  latched.add(code);
 });
-window.addEventListener('keyup', (e) => held.delete(keyName(e)));
+window.addEventListener('keyup', (e) => held.delete(e.code));
 window.addEventListener('blur', () => {
   held.clear();
   pause();
 });
-const pressed = (k) => held.has(k) || latched.has(k);
+const down = (action) => held.has(settings.keys[action]);
+const pressed = (action) => held.has(settings.keys[action]) || latched.has(settings.keys[action]);
 function buildInput() {
-  if (held.has('arrowleft')) camYaw += 120 * DT;
-  if (held.has('arrowright')) camYaw -= 120 * DT;
-  const kx = (held.has('d') ? 1 : 0) - (held.has('a') ? 1 : 0);
-  const kz = (held.has('w') || held.has('arrowup') ? 1 : 0) - (held.has('s') || held.has('arrowdown') ? 1 : 0);
+  const bound = new Set(Object.values(settings.keys));
+  if (held.has('ArrowLeft') && !bound.has('ArrowLeft')) camYaw += 120 * DT;
+  if (held.has('ArrowRight') && !bound.has('ArrowRight')) camYaw -= 120 * DT;
+  const kx = (down('right') ? 1 : 0) - (down('left') ? 1 : 0);
+  const kz = (down('up') ? 1 : 0) - (down('down') ? 1 : 0);
   // Camera looks along +Z at yaw 0, so screen-right is world -X.
-  return { move: [-kx, kz], cam_yaw_deg: camYaw, jump: pressed(' '), interact: pressed('e'), pulse: pressed('f'), dash: pressed('shift'), pause: false };
+  return { move: [-kx, kz], cam_yaw_deg: camYaw, jump: pressed('jump'), interact: pressed('interact'), pulse: pressed('pulse'), dash: pressed('dash'), pause: false };
 }
 
 // ---------- events -> sound/fx ----------
@@ -429,6 +568,7 @@ function toast(text) {
   toastTimer = setTimeout(() => t.classList.add('hidden'), 2200);
 }
 function vignette(kind) {
+  if (settings.reduceMotion) return; // reduced motion: no screen flashes
   const v = $('vignette');
   v.className = kind;
   requestAnimationFrame(() => requestAnimationFrame(() => (v.className = '')));
@@ -498,14 +638,17 @@ function handleEvents(events, demo = false) {
         }
         break;
       case 'player_hit':
-        shake = 0.5;
+        if (!settings.reduceMotion) shake = 0.5;
         vignette('hit');
+        captions.say(d.by === 'fall' ? `${settings.cb ? '⚠ ' : ''}Rơi khỏi đảo (−1 Ngọn Lửa)` : `${settings.cb ? '⚠ ' : ''}Bị Bóng Mực chạm (−1 Ngọn Lửa)`, 'danger');
         toast(d.by === 'fall' ? `Rơi xuống biển mây! Mất ${d.lost} đom đóm` : d.dropped ? `Bị Bóng Mực chạm! Rơi ${d.dropped} đom đóm` : 'Bị Bóng Mực chạm!');
         particles.emit(at, { n: 40, color: C.shadeRim, speed: 5, up: 2, life: 0.7 });
         break;
       case 'shade_spawned': {
         const s = sim.shades.find((x) => x.id === d.id);
         if (s) particles.emit(s.pos, { n: 50, color: C.shadeRim, speed: 2, up: 2, life: 1.2, gravity: -1 });
+        captions.say('Bóng Mực xuất hiện', 'shade');
+        spawnCues.push({ id: d.id, until: performance.now() + 4000 });
         break;
       }
       case 'charm_picked':
@@ -540,6 +683,33 @@ for (let i = 0; i < TUNING.capacity_max; i++) {
 }
 const v3 = new THREE.Vector3();
 const hudCache = {};
+// edge-of-screen arrows towards newly spawned shades (visual cue for the spawn sound)
+const spawnCues = [];
+function drawSpawnCues() {
+  const root = $('spawn-arrows');
+  const now = performance.now();
+  for (let i = spawnCues.length - 1; i >= 0; i--) if (spawnCues[i].until < now) spawnCues.splice(i, 1);
+  root.innerHTML = '';
+  for (const cue of spawnCues) {
+    const s = sim.shades.find((x) => x.id === cue.id);
+    if (!s) continue;
+    v3.set(s.pos[0], s.pos[1], s.pos[2]).project(camera);
+    const behind = v3.z > 1;
+    let x = behind ? -v3.x : v3.x;
+    let y = behind ? -v3.y : v3.y;
+    if (!behind && Math.abs(x) <= 0.9 && Math.abs(y) <= 0.9) continue; // on screen: no arrow needed
+    if (Math.abs(x) < 0.01 && Math.abs(y) < 0.01) y = -1;
+    const k = 1 / Math.hypot(x / 0.88, y / 0.8);
+    x *= k;
+    y *= k;
+    const el = document.createElement('div');
+    el.className = 'spawn-arrow';
+    el.style.left = `${((x + 1) / 2) * window.innerWidth - 13}px`;
+    el.style.top = `${((1 - y) / 2) * window.innerHeight - 14}px`;
+    el.style.transform = `rotate(${Math.atan2(x, y)}rad)`;
+    root.append(el);
+  }
+}
 const changed = (k, v) => (hudCache[k] === v ? false : ((hudCache[k] = v), true));
 const mm = $('minimap').getContext('2d');
 function drawMinimap() {
@@ -658,14 +828,24 @@ function updateHud() {
   if (near) {
     const cost = near.everLit ? TUNING.relight_cost : TUNING.lantern_cost;
     const txt = near.lit
-      ? `<kbd>E</kbd> — Châm dầu (${Math.floor(near.fuel / RULES.fuel_units)}/100)`
-      : `<kbd>E</kbd> — ${near.everLit ? 'Thắp lại' : 'Nạp ánh sáng'} (${near.deposited}/${cost})`;
+      ? `<kbd>${keyLabel(settings.keys.interact)}</kbd> — Châm dầu (${Math.floor(near.fuel / RULES.fuel_units)}/100)`
+      : `<kbd>${keyLabel(settings.keys.interact)}</kbd> — ${near.everLit ? 'Thắp lại' : 'Nạp ánh sáng'} (${near.deposited}/${cost})`;
     if (changed('prompt', txt)) $('hud-prompt').innerHTML = txt;
   }
 
   const windSoon = sim.windEnabled && sim.windTicks === 0 && sim.simTick % RULES.wind_every_ticks >= RULES.wind_every_ticks - RULES.wind_warn_ticks;
   $('hud-wind').classList.toggle('hidden', !(windSoon || sim.windTicks > 0));
   $('hud-wind').textContent = sim.windTicks > 0 ? 'Gió mạnh!' : 'Gió sắp nổi…';
+
+  // captions / visual cues (Ticket-04 §4)
+  const warn = settings.cb ? '⚠ ' : '';
+  if (windSoon && changed('windCue', Math.floor(sim.simTick / RULES.wind_every_ticks))) captions.say('Gió sắp thổi!', '');
+  if (t <= 10 && t > 0 && changed('last10', night)) captions.say(`${warn}10 giây cuối tới bình minh!`, 'danger');
+  for (const l of sim.lanterns) {
+    const isLow = l.lit && l.fuel < TUNING.low_fuel_threshold * RULES.fuel_units;
+    if (changed(`low-${l.id}`, isLow) && isLow) captions.say(`${warn}Đèn ${l.id} sắp hết dầu`, 'danger');
+  }
+  drawSpawnCues();
 
   // arrow to the nearest unlit lantern when off-screen
   const target = sim.lanterns.filter((l) => !l.lit).sort((a, b) => distXZ(a.pos, p.pos) - distXZ(b.pos, p.pos))[0];
@@ -798,6 +978,11 @@ function renderWorld(time, dt) {
   }
   ambient.intensity = 0.15 + 0.55 * (lit / sim.lanterns.length);
   scene.fog.density = 0.022 - 0.01 * (lit / sim.lanterns.length);
+  if (mode === 'flyover') {
+    // wide establishing shots for the menu video: thinner mist so the whole island reads
+    ambient.intensity = 0.8;
+    scene.fog.density = 0.005;
+  }
 
   sync(moteMeshes, sim.motes, makeMote);
   for (const m of sim.motes) {
@@ -879,7 +1064,16 @@ function renderWorld(time, dt) {
     camPos.x += (Math.random() - 0.5) * shake * 1.2;
     camPos.y += (Math.random() - 0.5) * shake * 1.2;
   }
-  if (mode === 'menu' && !menuVideo) {
+  if (mode === 'flyover') {
+    // menu-video capture: wide orbit around the whole island, slowly descending
+    const cx = night === 2 ? 35 : 0;
+    const R = night === 2 ? 72 : night === 3 ? 58 : 52;
+    const tt = time - flyStart;
+    const a = 0.9 + tt * 0.11;
+    camPos.set(cx + Math.cos(a) * R, 30 - tt * 1.1, Math.sin(a) * R);
+    target.set(cx, night === 3 ? 4 : 0, 0);
+    camera.position.copy(camPos);
+  } else if (mode === 'menu' && !menuVideo) {
     // cinematic orbit around the demo bot; framed to the right of the menu text
     const a = time * 0.12;
     const R = 13 + 3 * Math.sin(time * 0.05);
@@ -904,7 +1098,7 @@ let faded = [];
 function fadeOccluders(target) {
   for (const [mesh, mat] of faded) mesh.material = mat;
   faded = [];
-  if (!terrain || mode === 'menu' || mode === 'intro') return;
+  if (!terrain || mode === 'menu' || mode === 'intro' || BENCH_MODE) return;
   const dir = target.clone().sub(camera.position);
   const len = dir.length();
   ray.set(camera.position, dir.normalize());
@@ -923,8 +1117,71 @@ const fps = { frames: 0, t0: performance.now(), last: 0, samples: [] };
 window.__ddl = { fps, get mode() { return mode; }, get sim() { return sim; } }; // for scripts/browser-proof.mjs
 let prevTs = 0;
 let budget = 0;
+// ---------- benchmark (Ticket-04 §1) ----------
+const bench = { first: 0, prev: 0, simPrev: 0, acc: 0, dts: [], heapPeak: 0, done: false };
+function startBench() {
+  const seed = Number(params.get('seed') ?? 42);
+  mode = 'bench';
+  night = 1;
+  sim = makeBenchSim(seed);
+  terrain = buildTerrain(sim.map, mulberry32(1007), { decor: false });
+  scene.add(terrain);
+  lanternMeshes = sim.lanterns.map((l) => {
+    const m = makeLantern(l);
+    scene.add(m.group);
+    return m;
+  });
+  // creative extras off in the standard bench scene
+  fireflies.points.visible = false;
+  particles.points.visible = false;
+  particles.emit = () => {};
+  for (const s of SCREENS) $(s).classList.add('hidden');
+  $('hud').classList.add('hidden');
+  bench.duration = Number(params.get('duration') ?? 30);
+}
+function benchFrame(ts) {
+  if (bench.done) return;
+  if (!bench.first) {
+    bench.first = ts;
+    bench.firstEpoch = performance.timeOrigin + ts; // first frame of the bench scene
+  }
+  const t = (ts - bench.first) / 1000;
+  if (bench.prev && t > BENCH.warmupS) bench.dts.push(ts - bench.prev);
+  bench.prev = ts;
+  bench.acc += bench.simPrev ? Math.min(0.25, (ts - bench.simPrev) / 1000) : 0;
+  bench.simPrev = ts;
+  while (bench.acc >= DT) {
+    sim.step(NEUTRAL_INPUT);
+    sim.drainEvents();
+    bench.acc -= DT;
+  }
+  renderWorld(t, Math.min(0.25, (ts - (bench.prevRender || ts)) / 1000));
+  bench.prevRender = ts;
+  // camera: circle r 30 around (0,0,0) at Y 15, starts at 0° = (30,15,0), CCW seen from above, 15 s per lap
+  const a = (2 * Math.PI * t) / BENCH.lapS;
+  camera.position.set(BENCH.camRadius * Math.cos(a), BENCH.camY, BENCH.camRadius * Math.sin(a));
+  camera.lookAt(0, 0, 0);
+  renderer.render(scene, camera);
+  if (performance.memory) bench.heapPeak = Math.max(bench.heapPeak, performance.memory.usedJSHeapSize);
+  if (t >= BENCH.warmupS + bench.duration) {
+    bench.done = true;
+    const gl = renderer.getContext();
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    const gpu = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    window.__benchResult = {
+      ...frameStats(bench.dts),
+      first_frame_epoch_ms: bench.firstEpoch,
+      js_heap_peak_mb: bench.heapPeak ? Math.round(bench.heapPeak / 1048576) : null,
+      renderer: `three.js r${THREE.REVISION} WebGL2 — ${gpu}`,
+      user_agent: navigator.userAgent,
+    };
+    document.title = 'BENCH DONE';
+  }
+}
+
 function frame(ts) {
   requestAnimationFrame(frame);
+  if (mode === 'bench') return benchFrame(ts);
   // FPS cap (settings): time budget accumulates across display frames, so the average rate
   // matches the cap even when the display refresh is not a multiple of it (e.g. 66 Hz vs 60).
   const elapsed = prevTs ? ts - prevTs : 0;
@@ -937,7 +1194,15 @@ function frame(ts) {
   }
   const dt = Math.min(clock.getDelta(), 0.25);
   const time = clock.elapsedTime;
-  if (mode === 'menu' && !menuVideo) {
+  if (mode === 'flyover' && time - flyStart > FLY_SECONDS) {
+    if (night === 3) window.__flyoverDone = true;
+    else {
+      loadNight(night + 1, 11 + night);
+      lightForShow();
+      flyStart = time;
+    }
+  }
+  if ((mode === 'menu' && !menuVideo) || mode === 'flyover') {
     // attract mode: the bot plays a night behind the menu
     acc += dt;
     while (acc >= DT) {
@@ -972,11 +1237,36 @@ function frame(ts) {
   }
 }
 
-loadNight(Number(params.get('night')) || 1);
-renderNightCards();
-show('scr-menu');
-if (params.has('night')) {
-  goIntro(Number(params.get('night')));
-  if (params.has('play')) startPlay();
+renderKeyHints();
+// ?flyover: scripted island flyover used by scripts/record-menu-video.mjs to make video/menu.mp4
+const FLY_SECONDS = 9;
+let flyStart = 0;
+// video only: most lanterns already burning so the islands glow (display-only, never in gameplay)
+function lightForShow() {
+  sim.lanterns.forEach((l, i) => {
+    if (i % 3 !== 2) {
+      l.lit = true;
+      l.everLit = true;
+      l.fuel = TUNING.fuel_max * RULES.fuel_units;
+    }
+  });
+}
+if (BENCH_MODE) startBench();
+else if (params.has('flyover')) {
+  loadNight(1, 11);
+  lightForShow();
+  mode = 'flyover';
+  for (const s of SCREENS) $(s).classList.add('hidden');
+  $('hud').classList.add('hidden');
+  document.getElementById('menu-video')?.remove();
+  menuVideo = null;
+} else {
+  loadNight(Number(params.get('night')) || 1);
+  renderNightCards();
+  show('scr-menu');
+  if (params.has('night')) {
+    goIntro(Number(params.get('night')));
+    if (params.has('play')) startPlay();
+  }
 }
 requestAnimationFrame(frame);
