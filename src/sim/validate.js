@@ -50,7 +50,7 @@ const uniqueIds = (list, where) => {
   }
 };
 
-export const SHADE_STATES = ['spawning', 'wander', 'chase', 'recoil', 'stunned'];
+export const SHADE_STATES = ['spawning', 'wander', 'chase', 'recoil', 'stunned', 'drain'];
 export const DRIFTER_STATES = ['idle', 'chase', 'flee', 'removed'];
 const BUTTONS = ['jump', 'interact', 'pulse', 'dash', 'pause'];
 
@@ -89,7 +89,7 @@ export function parseScenario(raw, warn = () => {}) {
     if (!isObj(p)) fail('scenario.player: expected object');
     sc.player = {};
     if ('pos' in p) sc.player.pos = vec3(p.pos, 'scenario.player.pos');
-    pick(p, sc.player, ['carried', 'flames', 'invuln_ticks', 'dash_cd_ticks', 'pulse_cd_ticks', 'charm_ticks'], uint, 'scenario.player');
+    pick(p, sc.player, ['carried', 'flames', 'invuln_ticks', 'dash_cd_ticks', 'pulse_cd_ticks', 'charm_ticks', 'successful_lights'], uint, 'scenario.player');
   }
   pick(raw, sc, ['random_motes', 'random_shades', 'random_drifters', 'wind_enabled'], bool, 'scenario');
 
@@ -114,6 +114,7 @@ export function parseScenario(raw, warn = () => {}) {
       if ('id' in s) out.id = str(s.id, `${w}.id`);
       if ('state' in s) out.state = oneOf(s.state, SHADE_STATES, `${w}.state`);
       if ('state_ticks_left' in s) out.state_ticks_left = uint(s.state_ticks_left, `${w}.state_ticks_left`);
+      if ('target_lantern_id' in s && s.target_lantern_id !== null) out.target_lantern_id = str(s.target_lantern_id, `${w}.target_lantern_id`);
       return out;
     });
     uniqueIds(sc.shades, 'scenario.shades');
@@ -152,6 +153,12 @@ export function parseScenario(raw, warn = () => {}) {
       if ('pos' in l) out.pos = vec3(l.pos, `${w}.pos`);
       if ('deposited' in l) out.deposited = uint(l.deposited, `${w}.deposited`);
       if ('lit' in l) out.lit = bool(l.lit, `${w}.lit`);
+      if ('fuel' in l) {
+        out.fuel = unum(l.fuel, `${w}.fuel`);
+        if (out.fuel > 100) fail(`${w}.fuel: expected 0..100`);
+      }
+      if ('ever_lit' in l) out.ever_lit = bool(l.ever_lit, `${w}.ever_lit`);
+      if ('relit_count' in l) out.relit_count = uint(l.relit_count, `${w}.relit_count`);
       return out;
     });
   }

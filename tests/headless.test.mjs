@@ -10,9 +10,11 @@ import { TUNING } from '../src/sim/config.js';
 const T = TUNING;
 const gameEvents = (r) => r.events.filter((e) => e.name !== 'night_start');
 
-test('contract v1.1: tuning matches the code', () => {
+// Ticket-03: contract v1.2 (was 1.1)
+test('contract v1.2: tuning matches the code', () => {
   const c = JSON.parse(readFileSync(join(ROOT, 'game.contract.json'), 'utf8'));
-  assert.equal(c.contract_version, '1.1');
+  assert.equal(c.contract_version, '1.2');
+  assert.deepEqual([c.tuning.night1_duration_s, c.tuning.night2_duration_s, c.tuning.night3_duration_s], [240, 270, 300]);
   assert.deepEqual(c.tuning, TUNING);
 });
 
@@ -26,15 +28,16 @@ test('output format: snapshots every N ticks, night_start at tick 0, end line la
   assert.equal(s0.night, 1);
   assert.deepEqual(s0.wind, { active: false, dir_deg: 0 });
   assert.deepEqual(s0.player, {
-    pos: [0, 0, 0], vel: [0, 0, 0], grounded: true, flames: 3, carried: 0,
+    pos: [0, 0, 0], vel: [0, 0, 0], grounded: true, flames: 3, carried: 0, capacity: 10,
     invuln: false, dash_cd_s: 0, pulse_cd_s: 0, charm_s: 0,
   });
   assert.deepEqual(s0.lanterns.map((l) => l.pos), [[0, 0, 25], [23.8, 0, 7.7], [14.7, 0, -20.2], [-14.7, 0, -20.2], [-23.8, 0, 7.7]]);
+  assert.deepEqual(s0.lanterns[0], { id: 'L1', pos: [0, 0, 25], lit: false, deposited: 0, fuel: 0, ever_lit: false, relit_count: 0 });
   assert.equal(s0.motes_active, 20);
   for (const m of s0.motes) assert.deepEqual(Object.keys(m), ['id', 'pos', 'kind', 'ttl_s']);
   assert.deepEqual(s0.drifters, []);
   assert.deepEqual(s0.charms, []);
-  assert.equal(r.snapshots[2].time_left_s, Math.round((300 - 20 / 60) * 1000) / 1000);
+  assert.equal(r.snapshots[2].time_left_s, Math.round((240 - 20 / 60) * 1000) / 1000);
 });
 
 test('determinism: same seed + inputs => identical bytes, all nights', () => {
@@ -72,7 +75,8 @@ test('pickup: XZ radius inclusive, height difference <= 1.5, capacity 10', () =>
   assert.deepEqual(gameEvents(hi).map((e) => e.data.carried), [1]);
 });
 
-test('deposit: +10 per mote deposited, +100 when lit; scenario setup gives nothing', () => {
+// Ticket-03: +5 per mote deposited (was +10); lantern_lit carries relight
+test('deposit: +5 per mote deposited, +100 when first lit; scenario setup gives nothing', () => {
   const scenario = quiet({
     player: { carried: 3 },
     lanterns: [{ id: 'L1', pos: [0, 0, 2], deposited: 8 }, { id: 'L2', lit: true }],
@@ -81,9 +85,9 @@ test('deposit: +10 per mote deposited, +100 when lit; scenario setup gives nothi
   assert.equal(r.snapshots[0].score, 0);
   assert.deepEqual(gameEvents(r).map((e) => [e.tick, e.name, e.data]), [
     [2, 'deposit', { lantern_id: 'L1', amount: 2, deposited: 10 }],
-    [2, 'lantern_lit', { lantern_id: 'L1' }],
+    [2, 'lantern_lit', { lantern_id: 'L1', relight: false }],
   ]);
-  assert.equal(r.end.score, 2 * 10 + 100);
+  assert.equal(r.end.score, 2 * 5 + 100);
 });
 
 test('interact: radius 2, edge-triggered, nearest unlit lantern, tie -> smaller id', () => {
@@ -95,7 +99,9 @@ test('interact: radius 2, edge-triggered, nearest unlit lantern, tie -> smaller 
   assert.equal(gameEvents(far).length, 0);
 });
 
-test('win: last lantern lit => won, bonus floor(t)*2 + 50*flames', () => {
+// REPLACED by Ticket-03 §3: the old "win as soon as all lanterns are lit" test was removed.
+// Lighting the last lantern no longer ends the night; see tests/fuel.test.mjs for the dawn_survived win.
+test('lighting every lantern does not end the night early (Ticket-03)', () => {
   const lanterns = ['L2', 'L3', 'L4', 'L5'].map((id) => ({ id, lit: true }));
   lanterns.push({ id: 'L1', pos: [0, 0, 1], deposited: 9 });
   const r = runHeadless({
@@ -103,8 +109,9 @@ test('win: last lantern lit => won, bonus floor(t)*2 + 50*flames', () => {
     ticks: 600,
     inputs: { frames: [{ tick: 0, interact: true }] },
   });
-  assert.deepEqual(gameEvents(r).at(-1), { type: 'event', tick: 1, name: 'game_over', data: { result: 'won', reason: 'all_lit' } });
-  assert.deepEqual(r.end, { type: 'end', ticks: 1, state: 'won', score: 10 + 100 + 99 * 2 + 3 * 50 });
+  assert.ok(gameEvents(r).some((e) => e.name === 'lantern_lit' && e.tick === 1));
+  assert.equal(gameEvents(r).filter((e) => e.name === 'game_over').length, 0);
+  assert.equal(r.end.state, 'playing');
 });
 
 test('pulse: cost 3, 3D radius 5 from feet+0.8, stun, push 4 m over 15 ticks, cooldown 3 s', () => {

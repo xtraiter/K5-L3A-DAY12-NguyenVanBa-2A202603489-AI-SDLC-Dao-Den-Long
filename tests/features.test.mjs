@@ -35,7 +35,8 @@ test('shade states: wander -> chase within 12 m, chase -> wander beyond 18 m', (
   assert.equal(snapAt(r, 1).shades[0].state, 'chase');
   const lost = r.snapshots.find((s) => s.shades[0].state === 'wander' && s.tick > 1);
   assert.ok(lost, 'shade gives up');
-  assert.ok(Math.hypot(lost.shades[0].pos[0] - lost.player.pos[0], lost.shades[0].pos[2] - lost.player.pos[2]) > 18);
+  // the 18 m check happens before the shade's own wander step in that tick (<= 1.5/60 m)
+  assert.ok(Math.hypot(lost.shades[0].pos[0] - lost.player.pos[0], lost.shades[0].pos[2] - lost.player.pos[2]) > 18 - 1.5 / 60);
 });
 
 test('spawning shades are harmless and still for 60 ticks', () => {
@@ -273,7 +274,7 @@ test('pause: tick advances, sim_tick and time freeze, state paused; resume conti
   const s20 = snapAt(r, 20);
   assert.equal(s20.state, 'paused');
   assert.equal(s20.sim_tick, 10);
-  assert.equal(s20.time_left_s, Math.round((300 - 10 / 60) * 1000) / 1000);
+  assert.equal(s20.time_left_s, Math.round((240 - 10 / 60) * 1000) / 1000); // Ticket-03: night 1 = 240 s
   assert.deepEqual(s20.player.pos, [0, 0, 1]);
   const s50 = snapAt(r, 50);
   assert.equal(s50.state, 'playing');

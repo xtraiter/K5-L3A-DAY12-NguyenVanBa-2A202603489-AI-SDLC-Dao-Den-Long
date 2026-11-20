@@ -13,6 +13,7 @@ const pt = (r, deg, y = 0, cx = 0, cz = 0) => {
 const ring = (r, start, step, n, y = 0, cx = 0, cz = 0) =>
   Array.from({ length: n }, (_, i) => pt(r, start + i * step, y, cx, cz));
 
+// Durations come from TUNING (Ticket-03: 240 / 270 / 300 s).
 // ---------- Night 1: Đảo Bến ----------
 const night1 = {
   id: 1,
