@@ -1,5 +1,5 @@
 { "random_motes": false, "random_shades": false, "motes": [], "shades": [],
   "player": { "carried": 1 }, "time_left_s": 120,
-  "lanterns": [ { "id": "L1", "pos": [0, 0, 2], "deposited": 4 },
+  "lanterns": [ { "id": "L1", "pos": [0, 0, 2], "deposited": 9 },
                 { "id": "L2", "lit": true }, { "id": "L3", "lit": true },
                 { "id": "L4", "lit": true }, { "id": "L5", "lit": true } ] }

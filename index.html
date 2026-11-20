@@ -5,36 +5,127 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Đảo Đèn Lồng</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0716; font-family: system-ui, sans-serif; color: #ffe9c7; }
+    :root { --text: #F5F1E6; --gold: #F2C14E; --danger: #FF5A5F; --warm: #FFB347; --panel: rgba(14, 20, 48, .72); }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #0E1430; font-family: system-ui, "Segoe UI", sans-serif; color: var(--text); }
     canvas { display: block; }
-    #hud { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; gap: 18px; flex-wrap: wrap;
-           font-size: 16px; text-shadow: 0 1px 3px #000; pointer-events: none; }
-    #hud .box { background: rgba(20, 10, 35, .55); padding: 6px 12px; border-radius: 10px; }
-    #hint { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 13px; opacity: .75;
-            background: rgba(20, 10, 35, .55); padding: 6px 12px; border-radius: 10px; pointer-events: none; }
-    #overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-               background: rgba(8, 4, 18, .78); text-align: center; gap: 10px; }
-    #overlay h1 { margin: 0; font-size: 44px; color: #ffb347; letter-spacing: 1px; }
-    #overlay p { margin: 0; max-width: 560px; line-height: 1.5; }
-    #overlay .key { color: #ffd27a; font-weight: 600; }
     .hidden { display: none !important; }
+    .panel { background: var(--panel); border-radius: 12px; padding: 6px 14px; text-shadow: 0 1px 3px #000; }
+    #hud { position: fixed; inset: 0; pointer-events: none; font-size: 17px; }
+    #hud-flames { position: absolute; top: 14px; left: 14px; display: flex; gap: 10px; padding: 10px 14px; }
+    .flame { width: 22px; height: 30px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; position: relative;
+             background: radial-gradient(circle at 50% 70%, #FFE9B0 0 22%, #FFB347 45%, #C8102E 100%);
+             box-shadow: 0 0 14px #FFB347; animation: flick 1.2s ease-in-out infinite alternate; }
+    .flame.off { background: #5B5F6E; box-shadow: none; animation: none; opacity: .5; }
+    .flame.lost { animation: lost .6s ease-out; }
+    @keyframes flick { to { transform: scale(1.06, .94) rotate(2deg); } }
+    @keyframes lost { 0% { transform: scale(1.8); background: #FF5A5F; } }
+    #hud-clock { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); text-align: center; padding: 6px 18px; }
+    #hud-clock b { display: block; font-size: 28px; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+    #hud-clock small { font-size: 12px; opacity: .75; letter-spacing: 2px; text-transform: uppercase; }
+    #hud-clock.danger b { color: var(--danger); animation: blink 1s steps(2) infinite; }
+    @keyframes blink { 50% { opacity: .35; } }
+    #hud-right { position: absolute; top: 14px; right: 14px; text-align: right; padding: 8px 14px; }
+    #hud-lanterns { display: flex; gap: 6px; justify-content: flex-end; margin-bottom: 4px; }
+    #hud-lanterns i { width: 14px; height: 18px; border-radius: 45%; background: #5B5F6E; border-top: 3px solid #C8102E; }
+    #hud-lanterns i.on { background: radial-gradient(#FFE9B0, #FFB347); box-shadow: 0 0 10px #FFB347; }
+    #hud-score { color: var(--gold); font-weight: 700; font-size: 22px; font-variant-numeric: tabular-nums; }
+    #hud-score.pop { animation: pop .35s ease-out; }
+    @keyframes pop { 40% { transform: scale(1.35); color: #FFE9B0; } }
+    #minimap { position: absolute; bottom: 14px; left: 14px; width: 150px; height: 150px; border-radius: 50%;
+               background: rgba(14, 20, 48, .7); border: 2px solid rgba(242, 193, 78, .5); }
+    #floaters { position: absolute; inset: 0; overflow: hidden; }
+    .floater { position: absolute; font-weight: 700; font-size: 20px; text-shadow: 0 2px 4px #000; transform: translate(-50%, -50%);
+               animation: floatUp 1.1s ease-out forwards; white-space: nowrap; }
+    @keyframes floatUp { to { transform: translate(-50%, -160%); opacity: 0; } }
+    #toast { position: absolute; top: 96px; left: 50%; transform: translateX(-50%); font-size: 20px; color: var(--gold); transition: opacity .4s; }
+    #vignette { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity .5s; }
+    #vignette.hit { background: radial-gradient(circle, transparent 45%, rgba(255, 90, 95, .65)); opacity: 1; transition: none; }
+    #vignette.warm { background: radial-gradient(circle, transparent 50%, rgba(255, 179, 71, .45)); opacity: 1; transition: none; }
+    #hud-arrow-dist { position: absolute; color: var(--warm); font-size: 13px; font-weight: 600; text-shadow: 0 1px 3px #000; transform: translate(-50%, 0); }
+    #hud-motes { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; }
+    #hud-motes i { width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(255, 229, 138, .5); }
+    #hud-motes i.on { background: radial-gradient(#FFF6C2, #FFE58A); box-shadow: 0 0 8px #FFE58A; border-color: #FFE58A; }
+    #hud-cd { position: absolute; bottom: 14px; right: 14px; display: flex; gap: 10px; }
+    .cd { width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 600;
+          background: conic-gradient(var(--gold) var(--p, 100%), rgba(255,255,255,.12) 0); position: relative; }
+    .cd span { position: absolute; inset: 4px; border-radius: 50%; background: #0E1430; display: grid; place-items: center; text-align: center; line-height: 1.1; }
+    .cd.charm { --p: 100% !important; background: conic-gradient(#C8102E 100%, #C8102E 0); }
+    #hud-prompt { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); color: var(--warm); font-size: 19px; }
+    #hud-wind { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); color: #8FA3B8; }
+    #hud-arrow { position: absolute; width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent;
+                 border-bottom: 30px solid var(--warm); filter: drop-shadow(0 0 6px var(--warm)); transform-origin: 50% 60%; }
+    .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+              background: rgba(14, 20, 48, .82); text-align: center; padding: 16px; box-sizing: border-box; }
+    .screen h1 { margin: 0; font-size: clamp(32px, 6vw, 56px); color: var(--warm); text-shadow: 0 0 24px rgba(255, 179, 71, .5); }
+    .screen h2 { margin: 0; color: var(--gold); font-weight: 500; }
+    .screen p { margin: 0; max-width: 620px; line-height: 1.6; }
+    .screen .quote { font-style: italic; background: var(--panel); padding: 14px 18px; border-left: 4px solid var(--gold); border-radius: 8px; text-align: left; }
+    button { font: inherit; color: var(--text); background: rgba(255, 179, 71, .15); border: 1px solid var(--warm); border-radius: 10px;
+             padding: 10px 26px; min-width: 220px; cursor: pointer; }
+    button:hover, button:focus { background: rgba(255, 179, 71, .35); outline: none; }
+    label { display: flex; gap: 12px; align-items: center; justify-content: space-between; min-width: 300px; }
+    .muted { opacity: .7; font-size: 14px; }
   </style>
   <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
 </head>
 <body>
+  <div id="vignette"></div>
   <div id="hud" class="hidden">
-    <div class="box" id="hud-flames"></div>
-    <div class="box" id="hud-carried"></div>
-    <div class="box" id="hud-lanterns"></div>
-    <div class="box" id="hud-time"></div>
-    <div class="box" id="hud-score"></div>
-    <div class="box" id="hud-pulse"></div>
+    <div id="floaters"></div>
+    <canvas id="minimap" width="150" height="150"></canvas>
+    <div id="toast" class="panel hidden"></div>
+    <div id="hud-arrow-dist" class="hidden"></div>
+    <div id="hud-flames" class="panel"></div>
+    <div id="hud-clock" class="panel"><b id="clock-time"></b><small id="clock-night"></small></div>
+    <div id="hud-right" class="panel"><div id="hud-lanterns"></div><div id="hud-score"></div></div>
+    <div id="hud-wind" class="panel hidden">Gió sắp nổi…</div>
+    <div id="hud-prompt" class="panel hidden"></div>
+    <div id="hud-motes" class="panel"></div>
+    <div id="hud-cd">
+      <div class="cd" id="cd-dash"><span>Lướt<br />Shift</span></div>
+      <div class="cd" id="cd-pulse"><span>Tỏa sáng<br />F</span></div>
+    </div>
+    <div id="hud-arrow" class="hidden"></div>
   </div>
-  <div id="hint" class="hidden">WASD đi · Space nhảy · E nạp đèn · F tỏa sáng · Kéo chuột / ← → xoay camera · R chơi lại</div>
-  <div id="overlay">
-    <h1 id="ov-title">Đảo Đèn Lồng</h1>
-    <p id="ov-text">Đêm 1 – Đảo Bến. Sương đen đã nuốt ánh sáng của đảo. Hãy giúp Mây gom đom đóm và thắp lại 5 Đèn Lồng Lớn trước bình minh.</p>
-    <p>Nhấn <span class="key">Enter</span> để bắt đầu</p>
+
+  <div id="scr-menu" class="screen">
+    <h1>Đảo Đèn Lồng</h1>
+    <p>Sương đen đã nuốt ánh sáng của quần đảo giữa biển mây. Giúp Mây, người giữ đèn nhỏ tuổi, thắp lại các Đèn Lồng Lớn qua ba đêm.</p>
+    <button data-act="new">Bắt đầu</button>
+    <button data-act="settings">Cài đặt</button>
+    <p class="muted">WASD đi · Chuột/← → xoay camera · Space nhảy · Shift lướt · E nạp đèn · F tỏa sáng · Esc/P tạm dừng</p>
+  </div>
+  <div id="scr-intro" class="screen hidden">
+    <h2 id="intro-night"></h2>
+    <h1 id="intro-name"></h1>
+    <p class="quote" id="intro-quote"></p>
+    <button data-act="play">Vào đêm (Enter)</button>
+  </div>
+  <div id="scr-result" class="screen hidden">
+    <h1 id="res-title"></h1>
+    <p id="res-text"></p>
+    <button id="res-next" data-act="next">Đêm kế tiếp</button>
+    <button data-act="retry">Chơi lại Đêm này</button>
+    <button data-act="menu">Về menu</button>
+  </div>
+  <div id="scr-dawn" class="screen hidden">
+    <h1>Bình Minh</h1>
+    <p>Tiếng chuông vang khắp biển mây. Cả ba hòn đảo đã sáng lại.</p>
+    <h2 id="dawn-score"></h2>
+    <button data-act="menu">Về menu</button>
+  </div>
+  <div id="scr-pause" class="screen hidden">
+    <h1>Tạm dừng</h1>
+    <button data-act="resume">Tiếp tục</button>
+    <button data-act="retry">Chơi lại Đêm</button>
+    <button data-act="settings">Cài đặt</button>
+    <button data-act="menu">Về menu</button>
+  </div>
+  <div id="scr-settings" class="screen hidden">
+    <h1>Cài đặt</h1>
+    <label>Âm lượng <input id="set-volume" type="range" min="0" max="1" step="0.05" /></label>
+    <label>Độ nhạy chuột <input id="set-sens" type="range" min="0.05" max="1" step="0.05" /></label>
+    <button data-act="back">Xong</button>
   </div>
   <script type="module" src="./src/client/main.js"></script>
 </body>
