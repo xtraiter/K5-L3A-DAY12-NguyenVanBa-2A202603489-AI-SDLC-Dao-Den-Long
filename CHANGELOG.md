@@ -1,5 +1,19 @@
 # Changelog
 
+## [v1.0.0 / phase-4] Ticket-04 "Bình minh: phát hành" (contract v1.3)
+
+### Added
+- `bench_cmd` (`node scripts/bench.mjs`): cảnh benchmark chuẩn (200 Bóng Mực wander, 100 đom đóm, L1–L3 sáng), cửa sổ 1280×720, tắt vsync, camera bay vòng tròn; xuất `bench.json` (avg/p1-low FPS, p95 frame ms, load_ms, peak RSS).
+- `soak_cmd` (`node --expose-gc --max-semi-space-size=1 src/soak.mjs`): 10 đêm liên tiếp, input ngẫu nhiên theo seed, xuất `soak.json`.
+- Bảng xếp hạng cục bộ: lưu sau Bình Minh hoặc sau khi thua, top 10, màn hình ở menu, xuất bằng `--export-leaderboard`.
+- Accessibility: đổi phím (báo trùng phím, khôi phục mặc định), phụ đề và mũi tên chỉ hướng, giảm chuyển động, chữ ≥ 18 px, chữ lớn ×1.25.
+- Đảo sinh động hơn (nhà sàn, bến thuyền, tre, đá, hoa, cỏ); video menu; nhạc menu.
+
+### Changed
+- `run_cmd` đổi thành `node scripts/serve.mjs` (để `<run_cmd> --export-leaderboard out.json` chạy được trực tiếp).
+- Tìm đèn gần nhất không còn sao chép và sắp xếp lại danh sách mỗi tick (giảm rác bộ nhớ trong soak và bench). Đầu ra headless không đổi.
+- Không có breaking change với contract v1.0–v1.2.
+
 ## [phase-3] Ticket-03 "Đèn cạn dầu" (contract v1.2)
 
 ### Breaking changes
