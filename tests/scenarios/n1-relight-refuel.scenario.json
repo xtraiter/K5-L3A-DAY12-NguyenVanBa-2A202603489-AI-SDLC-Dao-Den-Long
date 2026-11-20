@@ -1,0 +1,3 @@
+{ "random_motes": false, "random_shades": false, "motes": [], "shades": [],
+  "player": { "carried": 12, "successful_lights": 1 },
+  "lanterns": [ { "id": "L1", "pos": [0, 0, 1], "ever_lit": true }, { "id": "L2", "pos": [0, 0, -1.5], "lit": true, "fuel": 40 } ] }

@@ -8,7 +8,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'dist');
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT);
-for (const p of ['index.html', 'src', 'vendor', 'nhac']) {
+for (const p of ['index.html', 'src', 'vendor', 'nhac', 'video']) {
   if (existsSync(join(ROOT, p))) cpSync(join(ROOT, p), join(OUT, p), { recursive: true, filter: (f) => !f.endsWith('headless.mjs') && !f.endsWith('.md') });
 }
 console.log('built', OUT);

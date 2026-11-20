@@ -8,7 +8,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const OUT = process.argv[2] || join(ROOT, 'docs', 'proof', 'phase-2', 'screens');
+const OUT = process.argv[2] || join(ROOT, 'docs', 'proof', 'phase-3', 'screens');
 const PORT = 8123;
 const DBG = 9333;
 const CANDIDATES = [

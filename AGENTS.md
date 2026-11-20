@@ -1,6 +1,6 @@
 # AGENTS.md — Đảo Đèn Lồng
 
-3D web game (Three.js) + deterministic headless mode for **Test Contract v1.1** (3 nights).
+3D web game (Three.js) + deterministic headless mode for **Test Contract v1.2** (3 nights, lantern fuel).
 Spec source: the ticket of the current phase (lab board) + `docs/notes/phase-N.md` (acceptance criteria, assumptions).
 
 ## Commands
@@ -22,7 +22,9 @@ Spec source: the ticket of the current phase (lab board) + `docs/notes/phase-N.m
 ## Rules
 - Contract wording beats intuition: XZ distances, "within r" means `<= r`, events of step k have tick k+1,
   snapshot tick 0 is before input, buttons fire on false→true, bad inputs/scenario → exit 2,
-  shade states exactly `spawning|wander|chase|recoil|stunned`.
+  shade states exactly `spawning|wander|chase|recoil|stunned|drain`.
+- Lantern fuel is integer units of 1/60 (`RULES.fuel_units`); never use float fuel in the sim. Win only at dawn (ADR 0001).
+- Rule changes from a ticket: write/extend an ADR in `docs/adr/` and list breaking changes in `CHANGELOG.md`.
 - Changing a gameplay number: edit `config.js` AND `game.contract.json` AND README scoring table.
 - Extra/creative entities must not change headless output (client-only, or gated off in `Sim`).
 - Every new rule gets a headless test in `tests/` (`features.test.mjs` for features). Never weaken or delete a

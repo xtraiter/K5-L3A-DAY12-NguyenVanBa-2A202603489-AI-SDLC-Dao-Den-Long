@@ -1,0 +1,33 @@
+collect-and-light (night 1): exit 0 end={"type":"end","ticks":3600,"state":"playing","score":150}
+  events: 0:night_start, 20:mote_picked, 40:mote_picked, 61:mote_picked, 81:mote_picked, 101:mote_picked, 121:mote_picked, 141:mote_picked, 161:mote_picked, 181:mote_picked, 200:mote_picked, 241:deposit, 241:lantern_lit
+pulse-stun (night 1): exit 0 end={"type":"end","ticks":496,"state":"lost","score":5}
+  events: 0:night_start, 81:pulse, 316:player_hit, 406:player_hit, 496:player_hit, 496:game_over
+shade-hit-lose (night 1): exit 0 end={"type":"end","ticks":166,"state":"lost","score":0}
+  events: 0:night_start, 76:player_hit, 166:player_hit, 166:game_over
+n1-light-last-no-early-win (night 1): exit 0 end={"type":"end","ticks":3600,"state":"playing","score":105}
+  events: 0:night_start, 31:deposit, 31:lantern_lit
+n2-launch-pad (night 2): exit 0 end={"type":"end","ticks":3600,"state":"playing","score":0}
+  events: 0:night_start
+n2-drifter-steal (night 2): exit 0 end={"type":"end","ticks":3600,"state":"playing","score":0}
+  events: 0:night_start, 76:drifter_steal
+n2-charm-dash (night 2): exit 0 end={"type":"end","ticks":2761,"state":"lost","score":0}
+  events: 0:night_start, 1:charm_picked, 21:dash, 34:dash, 563:player_hit, 1662:player_hit, 2761:player_hit, 2761:game_over
+n3-ramp-to-tier1 (night 3): exit 0 end={"type":"end","ticks":3600,"state":"playing","score":0}
+  events: 0:night_start
+n3-pad-to-tier2 (night 3): exit 0 end={"type":"end","ticks":3600,"state":"playing","score":0}
+  events: 0:night_start
+n3-wind (night 3): exit 0 end={"type":"end","ticks":2200,"state":"playing","score":0}
+  events: 0:night_start
+n1-fall-respawn (night 1): exit 0 end={"type":"end","ticks":3600,"state":"playing","score":0}
+  events: 0:night_start, 69:player_hit
+n1-pause (night 1): exit 0 end={"type":"end","ticks":1525,"state":"lost","score":0}
+  events: 0:night_start, 11:paused, 41:resumed, 489:player_hit, 1007:player_hit, 1525:player_hit, 1525:game_over
+n1-dawn-survived (night 1): exit 0 end={"type":"end","ticks":300,"state":"won","score":435}
+  events: 0:night_start, 300:game_over
+n1-drain-to-out (night 1): exit 0 end={"type":"end","ticks":3600,"state":"playing","score":0}
+  events: 0:night_start, 181:fuel_drain, 241:fuel_drain, 301:fuel_drain, 301:lantern_out
+n1-relight-refuel (night 1): exit 0 end={"type":"end","ticks":3600,"state":"playing","score":100}
+  events: 0:night_start, 1:deposit, 1:lantern_lit, 31:refuel
+night 1 full run (seed 42, up to 21600 ticks) twice: IDENTICAL; one run 327 ms incl. node startup (limit 30000 ms)
+night 2 full run (seed 42, up to 21600 ticks) twice: IDENTICAL; one run 418 ms incl. node startup (limit 30000 ms)
+night 3 full run (seed 42, up to 21600 ticks) twice: IDENTICAL; one run 636 ms incl. node startup (limit 30000 ms)

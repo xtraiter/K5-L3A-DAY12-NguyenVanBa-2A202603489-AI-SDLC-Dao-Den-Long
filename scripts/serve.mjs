@@ -17,9 +17,11 @@ const MIME = {
   '.mp3': 'audio/mpeg',
   '.ogg': 'audio/ogg',
   '.wav': 'audio/wav',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
 };
 // Only these top-level folders are served.
-const ALLOWED = new Set(['index.html', 'src', 'vendor', 'nhac']);
+const ALLOWED = new Set(['index.html', 'src', 'vendor', 'nhac', 'video']);
 
 createServer(async (req, res) => {
   try {

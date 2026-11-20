@@ -178,9 +178,35 @@ export function makeLantern(l) {
   ring.rotation.x = -Math.PI / 2;
   ring.position.y = 0.04;
   ring.visible = false;
-  group.add(pole, shell, core, cap, light, ring);
+  // Ticket-03: torn paper patches (visible when the lantern is out), fuel bar above the lantern
+  const tearMat = new THREE.MeshBasicMaterial({ color: 0x0b0d18, side: THREE.DoubleSide });
+  const tears = new THREE.Group();
+  for (const [a, y, s] of [[0.4, 0.15, 0.32], [2.4, -0.3, 0.24], [4.3, 0.35, 0.2]]) {
+    const t = new THREE.Mesh(new THREE.CircleGeometry(s, 3), tearMat);
+    t.position.set(Math.sin(a) * 0.79, 4.3 + y, Math.cos(a) * 0.79);
+    t.lookAt(Math.sin(a) * 3, 4.3 + y, Math.cos(a) * 3);
+    tears.add(t);
+  }
+  const fuelBar = new THREE.Group();
+  fuelBar.position.y = 5.75;
+  const barBg = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.2), new THREE.MeshBasicMaterial({ color: 0x0b0d18, transparent: true, opacity: 0.75, depthWrite: false }));
+  const fillMat = new THREE.MeshBasicMaterial({ color: C.lit, depthWrite: false });
+  const fill = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.12), fillMat);
+  fill.position.z = 0.01;
+  fuelBar.add(barBg, fill);
+  const body = new THREE.Group(); // the parts that squash when the lantern is out
+  body.add(shell, core, cap);
+  group.add(pole, body, tears, light, ring, fuelBar);
   group.position.set(l.pos[0], l.pos[1], l.pos[2]);
-  return { group, shellMat, core, light, ring };
+  return { group, shellMat, core, light, ring, body, tears, fuelBar, fill, fillMat };
+}
+
+// Colour-blind friendly palette (Ticket-03 §6): shade rim/eyes #7A3CFF -> #00B3FF.
+export function setShadePalette(colorBlind) {
+  const c = colorBlind ? 0x00b3ff : C.shadeRim;
+  rimMat.color.setHex(c);
+  eyeMat.color.setHex(colorBlind ? 0x00b3ff : 0xd9b3ff);
+  return c;
 }
 
 // Mây: small lantern keeper with áo bà ba (#E8E2D0), red scarf, nón lá and a hanging lantern.

@@ -39,36 +39,41 @@ Bản web là thư mục tĩnh, tạo bằng `npm run build:web` (ra thư mục 
 | Esc / P | Tạm dừng (Tiếp tục / Chơi lại Đêm / Cài đặt / Về menu) |
 | Enter | Vào đêm |
 
-## Luật chơi và cách tính điểm (số chuẩn Ticket-02)
+## Luật chơi và cách tính điểm (Ticket-03 "Đèn cạn dầu")
 
-- Đi gần đom đóm (≤ 1 m) là tự nhặt; mang tối đa **10** con. Mỗi đèn cần **10** đom đóm, nạp được nhiều lần.
-- Bóng Mực phát hiện Mây trong 12 m, bỏ đuổi khi xa hơn 18 m, chạy 4 m/s (Đêm 3: 4,5 m/s). Bị chạm thì mất 1 Ngọn Lửa, rơi một nửa số đom đóm đang mang ra xung quanh (nhặt lại được trong 8 giây), và bất tử 1,5 giây.
-- Đèn **đã sáng** tạo vùng an toàn bán kính 6 m mà Bóng Mực không vào được.
-- Rơi khỏi đảo: mất 1 Ngọn Lửa và toàn bộ đom đóm, sau 1 giây hồi sinh ở điểm xuất phát.
-- Gió Lạc (Đêm 2–3) cướp tối đa 3 đom đóm khi Mây mang từ 5 con trở lên; Tỏa Sáng đuổi được nó đi, hoặc bắt nó thả lại đồ đã cướp.
-- Bùa Gió: chạy 7,2 m/s và lướt không cần chờ hồi chiêu trong 10 giây.
-- **Thắng:** thắp mọi đèn của đêm. **Thua:** hết 3 Ngọn Lửa, hoặc hết giờ (300 / 330 / 360 giây).
+- **Mục tiêu: giữ đảo sáng tới bình minh.** Khi hết giờ (240 / 270 / 300 giây), Mây phải còn sống và có ít nhất 60% số đèn đang sáng (Đêm 1: 3/5, Đêm 2: 4/6, Đêm 3: 5/7). Thắp đủ đèn không kết thúc đêm sớm.
+- Đi gần đom đóm (≤ 1 m) là tự nhặt. Sức chứa ban đầu **10**, mỗi lần thắp đèn thành công +2 (tối đa 20).
+- Thắp đèn lần đầu cần 10 đom đóm. Đèn sáng có **dầu** (tối đa 100), hao 1/giây. Bấm E ở đèn đang sáng để **châm dầu** (+10 mỗi đom đóm). Hết dầu thì đèn tắt; đèn đã từng sáng chỉ cần 5 đom đóm để **thắp lại**.
+- Đèn sáng với dầu ≥ 30 có vùng an toàn bán kính 6 m. Dầu < 30 thì mất vùng an toàn, và Bóng Mực tới **hút dầu** (5/giây). Tỏa Sáng hoặc châm dầu sẽ đuổi chúng đi.
+- Bóng Mực phát hiện Mây trong 12 m, bỏ đuổi khi xa hơn 18 m, chạy 4 m/s (Đêm 3: 4,5 m/s). Bị chạm thì mất 1 Ngọn Lửa, rơi một nửa số đom đóm đang mang, bất tử 1,5 giây.
+- Rơi khỏi đảo: mất 1 Ngọn Lửa và toàn bộ đom đóm, hồi sinh ở điểm xuất phát.
+- Gió Lạc (Đêm 2–3) cướp tối đa 3 đom đóm; Bùa Gió giúp chạy 7,2 m/s và lướt không cần chờ hồi chiêu trong 10 giây.
+- **Thua:** hết 3 Ngọn Lửa (ngay lập tức), hoặc tới bình minh mà không đủ số đèn sáng.
 
 | Sự kiện | Điểm |
 |---|---|
-| Mỗi đom đóm nạp vào đèn | +10 |
-| Thắp một đèn | +100 |
-| Mỗi Bóng Mực trúng Tỏa Sáng (mỗi con, mỗi lần) | +5 |
-| Khi thắng: mỗi giây còn lại (làm tròn xuống) | +2 |
-| Khi thắng: mỗi Ngọn Lửa còn lại | +50 |
+| Mỗi đom đóm nạp vào đèn (thắp, thắp lại, châm dầu) | +5 |
+| Thắp lần đầu / thắp lại | +100 / +40 |
+| Bóng Mực trúng Tỏa Sáng (mỗi con, mỗi lần) | +5, hoặc +15 nếu nó đang hút dầu |
+| Bình minh (khi thắng): mỗi đèn đang sáng | +50 + phần nguyên của dầu còn lại |
+| Bình minh (khi thắng): mỗi Ngọn Lửa còn lại | +50 |
 
 Tổng điểm là tổng điểm các đêm đã thắng.
 
-## Test Contract v1.1
+## Cài đặt
 
-[game.contract.json](game.contract.json) khai báo các con số lấy từ [src/sim/config.js](src/sim/config.js); có test kiểm tra hai nơi khớp nhau. Spec, tiêu chí nghiệm thu và giả định: [docs/notes/phase-2.md](docs/notes/phase-2.md) (Phase 1: [phase-1.md](docs/notes/phase-1.md)).
+Âm lượng, độ nhạy chuột, giới hạn FPS (30 / 60 / 120 / 144 / không giới hạn), hiện FPS, độ phân giải (50–100%), và **Bảng màu dễ phân biệt** (Bóng Mực màu #00B3FF, cảnh báo trắng kèm ⚠). Tất cả được lưu trên trình duyệt. Game hỗ trợ mọi tỷ lệ màn hình, kể cả màn hình dọc và ultrawide.
+
+## Test Contract v1.2
+
+[game.contract.json](game.contract.json) khai báo các con số lấy từ [src/sim/config.js](src/sim/config.js); có test kiểm tra hai nơi khớp nhau. Quyết định thiết kế: [ADR 0001](docs/adr/0001-lantern-fuel-and-dawn-win.md). Breaking changes: [CHANGELOG.md](CHANGELOG.md). Giả định và test thay đổi: [phase-3.md](docs/notes/phase-3.md) ([phase-2](docs/notes/phase-2.md), [phase-1](docs/notes/phase-1.md)).
 
 ## Kiểm chứng
 
 | Lệnh | Kết quả |
 |---|---|
-| `npm test` | 42 test headless: luật Phase 1 với số chuẩn, và ít nhất một scenario cho mỗi tính năng mới |
-| `npm run proof` | Báo cáo test, chạy các scenario mẫu cho cả 3 đêm, kiểm tra tất định và thời gian chạy một đêm đầy đủ → [docs/proof/phase-2/](docs/proof/phase-2/README.md) |
+| `npm test` | 58 test headless: luật các phase trước (đã cập nhật theo luật mới) và test dầu đèn của Ticket-03 |
+| `npm run proof` | Báo cáo test, chạy các scenario mẫu cho cả 3 đêm, kiểm tra tất định và thời gian chạy một đêm đầy đủ → [docs/proof/phase-3/](docs/proof/phase-3/README.md) |
 | `GPU=1 node scripts/browser-proof.mjs` | Chrome headless: ảnh chụp menu, 3 đêm, màn tạm dừng; FPS ở 1280×720; lỗi console |
 
 CI trên GitHub Actions chạy `npm test` (Node 18 và 22) sau mỗi lần push.
@@ -81,6 +86,7 @@ CI trên GitHub Actions chạy `npm test` (Node 18 và 22) sau mỗi lần push.
 
 Mọi phần thêm đều nằm trong `src/client/` (chỉ phần hiển thị). Chúng không ảnh hưởng chế độ headless: `src/sim` không import gì từ client, và 42 test cùng phép kiểm tra tất định vẫn đạt (xem [docs/proof/phase-2](docs/proof/phase-2/README.md)).
 
+- **Menu sống động**: phía sau menu, bot tự chơi một đêm với camera quay kiểu điện ảnh (hoặc phát `video/menu.mp4` nếu có).
 - **Ông Đăng** kể chuyện ở màn giới thiệu mỗi đêm, và có màn Bình Minh với tiếng chuông khi thắng Đêm 3.
 - **Minimap** tròn hiện đèn, đom đóm, Bóng Mực, Gió Lạc và Bùa Gió; mũi tên chỉ tới đèn gần nhất kèm khoảng cách.
 - **Hệ hạt:** tia sáng khi thắp đèn, lấp lánh khi nhặt, vệt khi lướt, sóng sáng khi Tỏa Sáng, bụi khi đáp đất; bầu trời sao và mặt trăng; đom đóm trang trí bay nhiều dần khi đảo sáng lên.

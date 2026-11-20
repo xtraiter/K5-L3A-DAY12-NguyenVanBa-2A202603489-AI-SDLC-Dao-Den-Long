@@ -174,19 +174,45 @@
     #vignette { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity .5s; }
     #vignette.hit { background: radial-gradient(circle, transparent 45%, rgba(255, 90, 95, .65)); opacity: 1; transition: none; }
     #vignette.warm { background: radial-gradient(circle, transparent 50%, rgba(255, 179, 71, .45)); opacity: 1; transition: none; }
+    #hud-need { margin-top: 6px; font-size: 12px; color: var(--muted); }
+    #hud-need b { color: var(--core); }
+    #hud-need.bad, #hud-need.bad b { color: var(--danger); }
+    #hud-lanterns i.low { animation: blink 1s steps(2) infinite; }
+    #hud-lanterns i.out { height: 13px; margin-top: 4px; background: repeating-linear-gradient(45deg, #5B5F6E 0 3px, #2a2d3a 3px 5px); }
+    body.cb { --danger: #FFFFFF; }
+    #fps { position: fixed; top: 6px; left: 50%; transform: translateX(-50%); margin-top: 92px; font: 600 11px var(--ui); color: #8FA3B8; z-index: 5; pointer-events: none; }
+    #menu-video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+    select { font: inherit; color: var(--text); background: rgba(8, 11, 28, .7); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+    input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--warm); }
+    /* ---- any aspect ratio ---- */
+    body.short #hud-flames-wrap, body.short #hud-right { top: 10px; }
+    body.short #clock-time, body.short #hud-score { font-size: 26px; }
+    body.short #minimap { width: 110px; height: 110px; }
+    body.short .ab .ring { width: 46px; height: 46px; }
+    body.short .card { padding: 22px 26px; }
+    body.short .menu .lede, body.short .keys { display: none; }
+    body.portrait #hud-clock { top: 70px; }
+    body.portrait #minimap-wrap { display: none; }
+    body.portrait #hud-motes i { width: 10px; height: 10px; }
+    body.portrait #hud-bottom { bottom: 96px; }
+    body.portrait #hud-prompt { bottom: 150px; }
+    body.portrait #scr-menu { place-items: end center; padding: 24px 16px 36px; background: linear-gradient(0deg, rgba(8, 11, 28, .95) 35%, rgba(8, 11, 28, 0) 85%); }
+    body.portrait .hang { display: none; }
     @media (max-width: 720px) { #minimap-wrap { display: none; } .nights { grid-template-columns: 1fr; } .hang { display: none; } }
   </style>
   <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
 </head>
 <body>
+  <video id="menu-video" class="hidden" muted loop autoplay playsinline preload="auto"></video>
   <div id="vignette"></div>
+  <div id="fps" class="hidden"></div>
 
   <div id="hud" class="hidden">
     <div id="hud-vig"></div>
     <div id="floaters"></div>
     <div id="hud-flames-wrap"><div class="label">Ngọn Lửa</div><div id="hud-flames"></div></div>
     <div id="hud-clock"><div id="clock-time"></div><div id="clock-bar"><i></i></div><span id="clock-night" class="label"></span></div>
-    <div id="hud-right"><div class="label">Điểm</div><div id="hud-score"></div><div id="hud-lanterns"></div></div>
+    <div id="hud-right"><div class="label">Điểm</div><div id="hud-score"></div><div id="hud-lanterns"></div><div id="hud-need"></div></div>
     <div id="hud-wind" class="hidden"></div>
     <div id="toast" class="hidden"></div>
     <div id="hud-prompt" class="hidden"></div>
@@ -282,6 +308,11 @@
       <div style="margin-top: 18px">
         <label class="row"><span>Âm lượng</span><input id="set-volume" type="range" min="0" max="1" step="0.05" /><output id="out-volume"></output></label>
         <label class="row"><span>Độ nhạy chuột</span><input id="set-sens" type="range" min="0.02" max="0.5" step="0.01" /><output id="out-sens"></output></label>
+        <label class="row"><span>Giới hạn FPS</span>
+          <select id="set-fps"><option value="30">30</option><option value="60">60</option><option value="120">120</option><option value="144">144</option><option value="0">Không giới hạn</option></select></label>
+        <label class="row"><span>Hiện FPS</span><input id="set-showfps" type="checkbox" /></label>
+        <label class="row"><span>Độ phân giải</span><input id="set-scale" type="range" min="0.5" max="1" step="0.05" /><output id="out-scale"></output></label>
+        <label class="row"><span>Bảng màu dễ phân biệt</span><input id="set-cb" type="checkbox" /></label>
       </div>
       <div class="btns"><button class="btn primary" data-act="back">Xong</button></div>
     </div>

@@ -24,6 +24,8 @@ const SYNTH = {
   ui: [['triangle', 880, 880, 0.05, 0.15]],
   drifter_drop: [['triangle', 990, 660, 0.25, 0.2]],
   paused: [['triangle', 500, 400, 0.1, 0.15]],
+  lantern_out: [['sine', 440, 110, 1.0, 0.3], ['noise', 0, 0, 0.6, 0.08]],
+  refuel: [['triangle', 600, 900, 0.18, 0.25]],
   won: [['triangle', 523, 1047, 0.6, 0.3]],
   lost: [['sine', 392, 196, 0.8, 0.3]],
 };

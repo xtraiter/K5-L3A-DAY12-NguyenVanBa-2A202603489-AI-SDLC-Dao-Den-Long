@@ -5,7 +5,8 @@ import { TUNING, RULES, TICK_RATE } from '../sim/config.js';
 import { NIGHTS } from '../sim/maps.js';
 import { mulberry32 } from '../sim/rng.js';
 import { GameAudio } from './audio.js';
-import { C, buildTerrain, makeLantern, makePlayer, makeMote, makeShade, makeDrifter, makeCharm } from './world.js';
+import { C, buildTerrain, makeLantern, makePlayer, makeMote, makeShade, makeDrifter, makeCharm, setShadePalette } from './world.js';
+import { DemoBot } from './demo-bot.js';
 import { Particles, Fireflies, makeSky } from './fx.js';
 
 const $ = (id) => document.getElementById(id);
@@ -19,7 +20,8 @@ const STORY = {
 };
 
 // ---------- settings ----------
-const settings = { volume: 0.7, sens: 0.3 };
+// fpsCap: 0 = unlimited (vsync); scale: render resolution multiplier; cb: colour-blind palette
+const settings = { volume: 0.7, sens: 0.15, fpsCap: 60, showFps: false, scale: 1, cb: false };
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem('ddl-settings') || '{}'));
 } catch {}
@@ -31,18 +33,29 @@ const saveSettings = () => {
 
 // ---------- renderer ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.prepend(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(C.sky);
 scene.fog = new THREE.FogExp2(C.fog, 0.022);
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+// Any aspect ratio: keep at least the horizontal view of a 16:10 screen on tall/portrait screens
+// (vertical FOV grows), keep 60° vertical on wide/ultrawide screens.
+function fitView() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const aspect = w / h;
+  const minAspect = 1.6;
+  camera.aspect = aspect;
+  camera.fov = aspect >= minAspect ? 60 : (2 * Math.atan((Math.tan(Math.PI / 6) * minAspect) / aspect) * 180) / Math.PI;
+  camera.fov = Math.min(camera.fov, 100);
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * settings.scale);
+  renderer.setSize(w, h);
+  document.body.classList.toggle('portrait', aspect < 1);
+  document.body.classList.toggle('short', h < 600);
+}
+window.addEventListener('resize', fitView);
+fitView();
 const ambient = new THREE.AmbientLight(0xc9c2ff, 0.15);
 const moon = new THREE.DirectionalLight(0x8f9ad6, 0.35);
 moon.position.set(-30, 60, -20);
@@ -57,6 +70,29 @@ audio.setVolume(settings.volume);
 
 // ---------- world state ----------
 let sim = null;
+let demoBot = null; // menu attract mode
+let shadeRimColor = C.shadeRim;
+function applyColorBlind() {
+  shadeRimColor = setShadePalette(settings.cb);
+  document.body.classList.toggle('cb', !!settings.cb);
+}
+applyColorBlind();
+// Optional menu background video: drop video/menu.mp4 to use it instead of the live demo.
+let menuVideo = null;
+{
+  const v = document.getElementById('menu-video');
+  v.addEventListener('loadeddata', () => {
+    menuVideo = v;
+    v.classList.remove('hidden');
+  }, { once: true });
+  v.addEventListener('error', () => v.remove(), { once: true });
+  fetch('./video/menu.mp4', { method: 'HEAD' })
+    .then((r) => {
+      if (r.ok && (r.headers.get('content-type') || '').startsWith('video')) v.src = './video/menu.mp4';
+      else v.remove();
+    })
+    .catch(() => v.remove());
+}
 let night = 1;
 let totalScore = 0;
 let mode = 'menu';
@@ -86,9 +122,10 @@ function clearMap(map) {
   map.clear();
 }
 
-function loadNight(n) {
+function loadNight(n, seed = (Date.now() & 0x7fffffff) >>> 0) {
   night = n;
-  sim = new Sim({ seed: (Date.now() & 0x7fffffff) >>> 0, night: n });
+  sim = new Sim({ seed, night: n });
+  demoBot = new DemoBot();
   sim.drainEvents();
   if (terrain) scene.remove(terrain);
   terrain = buildTerrain(sim.map, mulberry32(n * 1000 + 7));
@@ -133,6 +170,12 @@ let settingsReturn = 'scr-menu';
 function show(id) {
   for (const s of SCREENS) $(s).classList.toggle('hidden', s !== id);
   $('hud').classList.toggle('hidden', mode !== 'playing');
+  if (menuVideo) {
+    const on = id === 'scr-menu';
+    menuVideo.classList.toggle('hidden', !on);
+    if (on) menuVideo.play().catch(() => {});
+    else menuVideo.pause();
+  }
   if (id) {
     releaseMouse();
     $(id).querySelector('button:not(:disabled)')?.focus();
@@ -201,14 +244,18 @@ function finishNight(result, reason) {
     show('scr-dawn');
     return;
   }
-  const why = { all_lit: 'Mọi ngọn Đèn Lồng Lớn đã sáng.', dawn: 'Trời đã sáng mà đảo vẫn chìm trong sương…', no_flames: 'Ngọn lửa của Mây đã tắt…' };
+  const why = {
+    dawn_survived: 'Bình minh đã tới, đảo vẫn sáng.',
+    dawn: `Bình minh tới mà chưa đủ ${sim.litNeeded()} đèn sáng…`,
+    no_flames: 'Ngọn lửa của Mây đã tắt…',
+  };
   const t = Math.floor(sim.timeLeft());
   const lit = sim.lanterns.filter((l) => l.lit).length;
   $('res-eyebrow').textContent = `Đêm ${night} · ${NIGHTS[night].name}`;
   $('res-title').textContent = won ? 'Đảo đã sáng lại!' : 'Đêm chưa qua…';
   $('res-text').textContent = why[reason];
   $('res-stats').innerHTML = [
-    ['Đèn đã thắp', `${lit}/${sim.lanterns.length}`],
+    ['Đèn đang sáng', `${lit}/${sim.lanterns.length} (cần ${sim.litNeeded()})`],
     ['Ngọn Lửa còn', p.flames],
     ['Thời gian còn', `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`],
     ['Điểm đêm này', won ? sim.score : 0],
@@ -251,6 +298,12 @@ const syncSettingsUi = () => {
   $('set-sens').value = settings.sens;
   $('out-volume').textContent = `${Math.round(settings.volume * 100)}%`;
   $('out-sens').textContent = settings.sens.toFixed(2);
+  $('set-fps').value = String(settings.fpsCap);
+  $('set-showfps').checked = !!settings.showFps;
+  $('set-scale').value = settings.scale;
+  $('out-scale').textContent = `${Math.round(settings.scale * 100)}%`;
+  $('set-cb').checked = !!settings.cb;
+  $('fps').classList.toggle('hidden', !settings.showFps);
 };
 syncSettingsUi();
 $('set-volume').addEventListener('input', (e) => {
@@ -263,6 +316,20 @@ $('set-sens').addEventListener('input', (e) => {
   settings.sens = Number(e.target.value);
   syncSettingsUi();
   saveSettings();
+});
+const onSetting = (id, key, read, after) =>
+  $(id).addEventListener(id === 'set-scale' ? 'input' : 'change', (e) => {
+    settings[key] = read(e.target);
+    after?.();
+    syncSettingsUi();
+    saveSettings();
+  });
+onSetting('set-fps', 'fpsCap', (t) => Number(t.value));
+onSetting('set-showfps', 'showFps', (t) => t.checked);
+onSetting('set-scale', 'scale', (t) => Number(t.value), fitView);
+onSetting('set-cb', 'cb', (t) => t.checked, () => {
+  applyColorBlind();
+  for (const k of Object.keys(hudCache)) delete hudCache[k];
 });
 
 // ---------- input ----------
@@ -367,15 +434,39 @@ function vignette(kind) {
   requestAnimationFrame(() => requestAnimationFrame(() => (v.className = '')));
 }
 const lanternById = (id) => sim.lanterns.find((l) => l.id === id);
-function handleEvents(events) {
+function handleEvents(events, demo = false) {
   const p = sim.player;
   const at = [p.pos[0], p.pos[1] + 1, p.pos[2]];
   for (const ev of events) {
     const d = ev.data;
+    if (demo) {
+      // menu attract mode: visuals only, no sound, no HUD text
+      if (ev.name === 'lantern_lit') {
+        const l = lanternById(d.lantern_id);
+        particles.emit([l.pos[0], l.pos[1] + 4.3, l.pos[2]], { n: 140, color: C.lit, speed: 9, up: 3, life: 1.4, gravity: 4 });
+      } else if (ev.name === 'pulse') pulseFx = 0;
+      continue;
+    }
     switch (ev.name) {
       case 'game_over':
         if (d.result === 'won') audio.play('bell');
         finishNight(d.result, d.reason);
+        continue;
+      case 'refuel': {
+        const l = lanternById(d.lantern_id);
+        floater(`+${d.amount * TUNING.score.per_mote}`, l.pos, '#F2C14E', 5.5);
+        particles.emit([l.pos[0], l.pos[1] + 4.3, l.pos[2]], { n: 10 * d.amount, color: C.lit, speed: 3, up: 1, life: 0.8, gravity: 0 });
+        toast(`Châm dầu ${d.lantern_id}: ${Math.round(d.fuel)}%`);
+        break;
+      }
+      case 'lantern_out': {
+        const l = lanternById(d.lantern_id);
+        particles.emit([l.pos[0], l.pos[1] + 4.3, l.pos[2]], { n: 50, color: 0x5b5f6e, speed: 2, up: 2, life: 1.2, gravity: -1 });
+        toast(`${settings.cb ? '⚠ ' : ''}Đèn ${d.lantern_id} đã tắt!`);
+        audio.play('lantern_out');
+        continue;
+      }
+      case 'fuel_drain':
         continue;
       case 'mote_picked':
         particles.emit(at, { n: 10, color: C.moteHalo, speed: 2, up: 2, life: 0.5, gravity: 1 });
@@ -391,8 +482,8 @@ function handleEvents(events) {
         const c = [l.pos[0], l.pos[1] + 4.3, l.pos[2]];
         particles.emit(c, { n: 140, color: C.lit, speed: 9, up: 3, life: 1.4, gravity: 4 });
         particles.emit(c, { n: 60, color: C.core, speed: 4, up: 5, life: 1.8, gravity: 2 });
-        floater(`+${TUNING.score.per_lantern}`, l.pos, '#FFE9B0', 6.5);
-        toast(`Đèn ${d.lantern_id} đã sáng!`);
+        floater(`+${d.relight ? TUNING.score.per_relight : TUNING.score.per_lantern}`, l.pos, '#FFE9B0', 6.5);
+        toast(d.relight ? `Đèn ${d.lantern_id} sáng lại!` : `Đèn ${d.lantern_id} đã sáng!`);
         vignette('warm');
         if (night === 3) audio.play('bell');
         break;
@@ -442,7 +533,7 @@ function handleEvents(events) {
 
 // ---------- HUD ----------
 const moteSlots = [];
-for (let i = 0; i < TUNING.carry_capacity; i++) {
+for (let i = 0; i < TUNING.capacity_max; i++) {
   const s = document.createElement('i');
   $('hud-motes').append(s);
   moteSlots.push(s);
@@ -526,8 +617,15 @@ function updateHud() {
     if (t <= 10 && t > 0) audio.play('countdown');
   }
   const lit = sim.lanterns.filter((l) => l.lit).length;
-  if (changed('lit', `${lit}/${sim.lanterns.length}`)) {
-    $('hud-lanterns').innerHTML = sim.lanterns.map((l) => `<i class="${l.lit ? 'on' : ''}" title="${l.id}"></i>`).join('');
+  const low = (l) => l.lit && l.fuel < TUNING.low_fuel_threshold * RULES.fuel_units;
+  const pipKey = sim.lanterns.map((l) => (l.lit ? (low(l) ? 'w' : 'o') : l.everLit ? 'x' : '-')).join('');
+  if (changed('pips', pipKey)) {
+    $('hud-lanterns').innerHTML = sim.lanterns
+      .map((l) => `<i class="${l.lit ? 'on' : ''} ${low(l) ? 'low' : ''} ${!l.lit && l.everLit ? 'out' : ''}" title="${l.id}"></i>`)
+      .join('');
+    const need = sim.litNeeded();
+    $('hud-need').innerHTML = `${lit < need ? (settings.cb ? '⚠ ' : '') : ''}Giữ sáng <b>${lit}</b>/${need} tới bình minh`;
+    $('hud-need').classList.toggle('bad', lit < need);
   }
   if (changed('score', totalScore + sim.score)) {
     const el = $('hud-score');
@@ -537,9 +635,13 @@ function updateHud() {
     el.classList.add('pop');
   }
   drawMinimap();
-  if (changed('carried', p.carried)) {
-    moteSlots.forEach((s, i) => s.classList.toggle('on', i < p.carried));
-    $('motes-label').textContent = `Đom đóm ${p.carried}/${TUNING.carry_capacity}`;
+  const capNow = sim.capacity();
+  if (changed('carried', `${p.carried}/${capNow}`)) {
+    moteSlots.forEach((s, i) => {
+      s.classList.toggle('on', i < p.carried);
+      s.classList.toggle('hidden', i >= capNow);
+    });
+    $('motes-label').textContent = `Đom đóm ${p.carried}/${capNow}`;
   }
   const cd = (el, ticks, max) => el.style.setProperty('--rem', `${(100 * ticks) / max}%`);
   cd($('cd-dash'), p.charm > 0 ? 0 : p.dashCd, RULES.dash_cd_ticks);
@@ -548,9 +650,18 @@ function updateHud() {
   $('cd-pulse').classList.toggle('dim', p.carried < TUNING.pulse_cost);
   $('lock-hint').classList.toggle('hidden', !!document.pointerLockElement || params.has('play'));
 
-  const near = sim.lanterns.filter((l) => !l.lit && distXZ(l.pos, p.pos) <= TUNING.interact_radius).sort((a, b) => distXZ(a.pos, p.pos) - distXZ(b.pos, p.pos))[0];
+  const full = TUNING.fuel_max * RULES.fuel_units;
+  const near = sim.lanterns
+    .filter((l) => (!l.lit || l.fuel < full) && distXZ(l.pos, p.pos) <= TUNING.interact_radius)
+    .sort((a, b) => distXZ(a.pos, p.pos) - distXZ(b.pos, p.pos) || (a.id < b.id ? -1 : 1))[0];
   $('hud-prompt').classList.toggle('hidden', !near);
-  if (near && changed('prompt', `${near.id}${near.deposited}`)) $('hud-prompt').innerHTML = `<kbd>E</kbd> — Nạp ánh sáng (${near.deposited}/${TUNING.lantern_cost})`;
+  if (near) {
+    const cost = near.everLit ? TUNING.relight_cost : TUNING.lantern_cost;
+    const txt = near.lit
+      ? `<kbd>E</kbd> — Châm dầu (${Math.floor(near.fuel / RULES.fuel_units)}/100)`
+      : `<kbd>E</kbd> — ${near.everLit ? 'Thắp lại' : 'Nạp ánh sáng'} (${near.deposited}/${cost})`;
+    if (changed('prompt', txt)) $('hud-prompt').innerHTML = txt;
+  }
 
   const windSoon = sim.windEnabled && sim.windTicks === 0 && sim.simTick % RULES.wind_every_ticks >= RULES.wind_every_ticks - RULES.wind_warn_ticks;
   $('hud-wind').classList.toggle('hidden', !(windSoon || sim.windTicks > 0));
@@ -646,16 +757,45 @@ function renderWorld(time, dt) {
   wasGrounded = p.grounded;
 
   let lit = 0;
+  const lowUnits = TUNING.low_fuel_threshold * RULES.fuel_units;
+  const blinkOff = Math.floor(time * 2) % 2 === 1; // 1 Hz slow blink
   sim.lanterns.forEach((l, i) => {
     const m = lanternMeshes[i];
     if (l.lit) lit++;
-    const fill = l.deposited / TUNING.lantern_cost;
+    const cost = l.everLit ? TUNING.relight_cost : TUNING.lantern_cost;
+    const fill = l.deposited / cost;
+    const low = l.lit && l.fuel < lowUnits;
+    const dim = low && blinkOff ? 0.35 : 1;
     m.shellMat.color.setHex(l.lit ? C.lit : C.off);
-    m.shellMat.emissiveIntensity = l.lit ? 1.6 + 0.2 * Math.sin(time * 3 + i) : fill * 0.7;
-    m.core.visible = l.lit;
-    m.light.intensity = l.lit ? 70 : fill * 8;
-    m.ring.visible = l.lit;
+    m.shellMat.emissiveIntensity = l.lit ? (1.6 + 0.2 * Math.sin(time * 3 + i)) * dim : fill * 0.7;
+    m.core.visible = l.lit && !(low && blinkOff);
+    m.light.intensity = l.lit ? 70 * dim : fill * 8;
+    m.ring.visible = l.lit && l.fuel >= lowUnits; // safe zone only while fuel >= 30
+    // out/unlit lanterns are squashed by 20% and torn (readable without colour)
+    m.body.scale.set(l.lit ? 1 : 0.92, l.lit ? 1 : 0.8, l.lit ? 1 : 0.92);
+    m.body.position.y = l.lit ? 0 : 4.3 * 0.2 * 0.5;
+    m.tears.visible = !l.lit;
+    m.fuelBar.visible = l.lit;
+    if (l.lit) {
+      const f = l.fuel / (TUNING.fuel_max * RULES.fuel_units);
+      m.fill.scale.x = Math.max(0.001, f);
+      m.fill.position.x = -0.7 * (1 - f);
+      m.fillMat.color.setHex(low ? (settings.cb ? 0xffffff : 0xff5a5f) : C.lit);
+      m.fuelBar.visible = !(low && blinkOff);
+      m.fuelBar.quaternion.copy(camera.quaternion);
+    }
   });
+  // drain: a thin stream of light flows from the lantern into the shade
+  for (const s of sim.shades) {
+    if (s.state !== 'drain' || Math.random() > 0.5) continue;
+    const l = lanternById(s.targetId);
+    if (!l) continue;
+    const k = Math.random();
+    particles.emit(
+      [l.pos[0] + (s.pos[0] - l.pos[0]) * k, l.pos[1] + 4.3 + (s.pos[1] - l.pos[1] - 4.3) * k, l.pos[2] + (s.pos[2] - l.pos[2]) * k],
+      { n: 1, color: C.lit, speed: 0.4, up: 0, life: 0.5, gravity: 0, spread: 0.2 },
+    );
+  }
   ambient.intensity = 0.15 + 0.55 * (lit / sim.lanterns.length);
   scene.fog.density = 0.022 - 0.01 * (lit / sim.lanterns.length);
 
@@ -677,7 +817,7 @@ function renderWorld(time, dt) {
     g.scale.setScalar(Math.max(0.05, sc));
     mat.opacity = s.state === 'recoil' ? 0.6 : 0.95;
     g.userData.animate(time, s.pos[0] * 0.37);
-    if (s.state === 'chase' && Math.random() < 0.08) particles.emit([s.pos[0], s.pos[1] - 0.6, s.pos[2]], { n: 1, color: C.shadeRim, speed: 0.3, up: 0.6, life: 0.8, gravity: 0, spread: 0.8 });
+    if (s.state === 'chase' && Math.random() < 0.08) particles.emit([s.pos[0], s.pos[1] - 0.6, s.pos[2]], { n: 1, color: shadeRimColor, speed: 0.3, up: 0.6, life: 0.8, gravity: 0, spread: 0.8 });
   }
 
   sync(drifterMeshes, sim.drifters.filter((d) => d.state !== 'removed'), makeDrifter);
@@ -724,7 +864,7 @@ function renderWorld(time, dt) {
     });
     leaves.instanceMatrix.needsUpdate = true;
   }
-  if (windSoon && sim.simTick % RULES.wind_every_ticks === RULES.wind_every_ticks - RULES.wind_warn_ticks) audio.play('wind');
+  if (mode === 'playing' && windSoon && sim.simTick % RULES.wind_every_ticks === RULES.wind_every_ticks - RULES.wind_warn_ticks) audio.play('wind');
 
   const frac = lit / sim.lanterns.length;
   fireflies.update(time, [sim.map.id === 2 ? 35 : 0, 0, 0], sim.map.id === 2 ? 65 : 42, frac);
@@ -739,7 +879,14 @@ function renderWorld(time, dt) {
     camPos.x += (Math.random() - 0.5) * shake * 1.2;
     camPos.y += (Math.random() - 0.5) * shake * 1.2;
   }
-  if (mode === 'menu' || mode === 'intro') {
+  if (mode === 'menu' && !menuVideo) {
+    // cinematic orbit around the demo bot; framed to the right of the menu text
+    const a = time * 0.12;
+    const R = 13 + 3 * Math.sin(time * 0.05);
+    camPos.set(p.pos[0] + Math.sin(a) * R, p.pos[1] + 6 + 2 * Math.sin(time * 0.07), p.pos[2] + Math.cos(a) * R);
+    target.set(p.pos[0] - Math.cos(a) * 4, p.pos[1] + 1.5, p.pos[2] + Math.sin(a) * 4);
+    camera.position.lerp(camPos, 0.05);
+  } else if (mode === 'menu' || mode === 'intro') {
     const R = night === 2 ? 70 : 55;
     const cx = night === 2 ? 35 : 0;
     camPos.set(cx + Math.sin(time * 0.08) * R, 28, Math.cos(time * 0.08) * R);
@@ -774,10 +921,35 @@ const clock = new THREE.Clock();
 let acc = 0;
 const fps = { frames: 0, t0: performance.now(), last: 0, samples: [] };
 window.__ddl = { fps, get mode() { return mode; }, get sim() { return sim; } }; // for scripts/browser-proof.mjs
-function frame() {
+let prevTs = 0;
+let budget = 0;
+function frame(ts) {
+  requestAnimationFrame(frame);
+  // FPS cap (settings): time budget accumulates across display frames, so the average rate
+  // matches the cap even when the display refresh is not a multiple of it (e.g. 66 Hz vs 60).
+  const elapsed = prevTs ? ts - prevTs : 0;
+  prevTs = ts;
+  if (settings.fpsCap > 0) {
+    const interval = 1000 / settings.fpsCap;
+    budget += elapsed;
+    if (budget < interval * 0.95) return;
+    budget = Math.min(budget - interval, interval);
+  }
   const dt = Math.min(clock.getDelta(), 0.25);
   const time = clock.elapsedTime;
-  if (mode === 'playing') {
+  if (mode === 'menu' && !menuVideo) {
+    // attract mode: the bot plays a night behind the menu
+    acc += dt;
+    while (acc >= DT) {
+      sim.step(demoBot.input(sim));
+      handleEvents(sim.drainEvents(), true);
+      acc -= DT;
+      if (sim.state === 'won' || sim.state === 'lost' || sim.simTick > 60 * 90) {
+        loadNight(1 + ((night) % 3), 7 + night);
+        break;
+      }
+    }
+  } else if (mode === 'playing') {
     acc += dt;
     while (acc >= DT && mode === 'playing') {
       sim.step(buildInput());
@@ -796,8 +968,8 @@ function frame() {
     fps.samples.push(fps.last);
     fps.frames = 0;
     fps.t0 = now;
+    $('fps').textContent = `${Math.round(fps.last)} FPS`;
   }
-  requestAnimationFrame(frame);
 }
 
 loadNight(Number(params.get('night')) || 1);
