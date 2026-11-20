@@ -1,7 +1,7 @@
 // Optional music/SFX loaded from the /nhac folder. Missing files are silently skipped,
 // so the game runs fine with an empty folder. Never imported by the headless runner.
 const FILES = {
-  bgm: 'bgm.mp3', // nhạc nền (loop)
+  bgm: 'maintheme.mp3', // nhạc nền (loop)
   mote_picked: 'pickup.mp3',
   deposit: 'deposit.mp3',
   lantern_lit: 'lit.mp3',
@@ -9,7 +9,7 @@ const FILES = {
   player_hit: 'hit.mp3',
   shade_spawned: 'shade.mp3',
   won: 'win.mp3',
-  lost: 'lose.mp3',
+  lost: 'dead.mp3',
 };
 
 export class GameAudio {

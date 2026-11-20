@@ -9,7 +9,8 @@
     "start": "node scripts/serve.mjs",
     "test": "node --test",
     "headless": "node src/headless.mjs",
-    "proof": "node scripts/proof.mjs"
+    "proof": "node scripts/proof.mjs",
+    "build:web": "node scripts/build-web.mjs"
   },
   "license": "MIT"
 }
